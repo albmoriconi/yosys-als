@@ -15,6 +15,7 @@ namespace smt {
 
         std::vector<std::pair<int, int>> s;
         std::vector<std::pair<bool, bool>> p;
+        bool out_p;
     };
 
     aig_model lut_synthesis(const std::string &fun_spec, int ax_degree);

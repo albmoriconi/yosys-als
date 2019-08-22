@@ -56,6 +56,7 @@ namespace smt {
     }
 
 // TODO Document me
+// TODO Make this faster
     aig_model lut_synthesis(const std::string &fun_spec, const int ax_degree) {
         auto num_vars = static_cast<size_t>(ceil(log2(fun_spec.size())));
         z3::context ctx;
@@ -134,6 +135,7 @@ namespace smt {
             aig.s.emplace_back(m.eval(s[0][i]).get_numeral_int(), m.eval(s[1][i]).get_numeral_int());
             aig.p.emplace_back(m.eval(p[0][i]).is_true(), m.eval(p[1][i]).is_true());
         }
+        aig.out_p = m.eval(out_p).is_true();
 
         return aig;
     }
