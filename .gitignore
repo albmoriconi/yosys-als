@@ -1,0 +1,7 @@
+*.so
+*.dSYM
+*.d
+*.ys
+CMakeLists.txt
+.idea
+cmake-build-debug
