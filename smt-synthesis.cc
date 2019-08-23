@@ -95,10 +95,64 @@ namespace smt {
 	 * @param c A character
 	 * @return \c false if \c is \c '0', otherwise \c true
 	 */
-	inline bool truth_value(const char c) {
+	constexpr bool truth_value(const char c) {
 		return c != '0';
 	}
 
+	/**
+	 * \brief Return a column of the truth table
+	 * @param col The number of the column
+	 * @param num_vars The number of variables
+	 * @param pol The polarity of the column
+	 * @return The column of the truth table (column 0 is all 0s)
+	 */
+	std::string truth_column(const unsigned i, const unsigned num_vars, const bool pol) {
+		std::string col;
+		size_t length = (1u << num_vars);
+
+		for (size_t t = 0; t < length; t++)
+			col.append(1, (truth_value(i, t) == pol) ? '1' : '0');
+
+		return std::string(col.rbegin(), col.rend());
+	}
+
+	/**
+	 * \brief Distance between two string
+	 * @param s1 A string
+	 * @param s2 A string
+	 * @return Number of different characters
+	 */
+	int distance(const std::string &s1, const std::string &s2) {
+		assert(s1.size() == s2.size());
+
+		int dist = 0;
+		for (size_t i = 0; i < s1.size(); i++) {
+			if (s1[i] != s2[i])
+				dist++;
+		}
+
+		return dist;
+	}
+
+	/**
+	 * \brief Determines if a specification can be satisfied by a single variable
+	 * @param fun_spec A function specification
+	 * @param ax_degree The approximation degree
+	 * @return The variable in AIGER convention (multiplied by 2, plus 1 if negated)
+	 */
+	 // FIXME Doesn't seem to be working correctly
+	int is_single_var(const std::string &fun_spec, const int ax_degree) {
+		unsigned num_vars = ceil_log2(fun_spec.size());
+
+		for (size_t i = 1; i < num_vars + 1; i++) {
+			if (distance(fun_spec, truth_column(i, num_vars, true)) <= ax_degree)
+				return static_cast<int>(i) * 2;
+			else if (distance(fun_spec, truth_column(i, num_vars, false)) <= ax_degree)
+				return (static_cast<int>(i) * 2) + 1;
+		}
+
+		return -1;
+	}
 
 	/**
 	 * \brief Enforces function semantics for given specification
@@ -137,9 +191,21 @@ namespace smt {
 		assert(!fun_spec.empty() && is_power_of_2(fun_spec.size()));
 		assert(ax_degree >= 0);
 
-		auto num_vars = ceil_log2(fun_spec.size());
+		unsigned num_vars = ceil_log2(fun_spec.size());
 
-		// TODO Handle constant and single variable cases
+		aig_model_t aig;
+		aig.num_inputs = static_cast<int>(num_vars) + 1;
+		for (size_t i = 0; i < num_vars + 1; i++) {
+			aig.s.emplace_back(std::array<int, 2> {static_cast<int>(i), static_cast<int>(i)});
+			aig.p.emplace_back(std::array<int, 2> {1, 1});
+		}
+
+		if (int sel_var = is_single_var(fun_spec, ax_degree) != -1) {
+			aig.num_gates = 0;
+			aig.out = sel_var / 2;
+			aig.out_p = sel_var % 2;
+			return aig;
+		}
 
 		z3::context ctx;
 		z3::solver slv(ctx);
@@ -211,14 +277,7 @@ namespace smt {
 		// Get the solver model
 		z3::model m = slv.get_model();
 
-		// Populate an AIG model
-		aig_model_t aig;
-
-		aig.num_inputs = static_cast<int>(num_vars) + 1;
-		for (size_t i = 0; i < num_vars + 1; i++) {
-			aig.s.emplace_back(std::array<int, 2> {static_cast<int>(i), static_cast<int>(i)});
-			aig.p.emplace_back(std::array<int, 2> {1, 1});
-		}
+		// Populate the AIG model
 		for (size_t i = 0; i < s[0].size(); i++) {
 			aig.s.emplace_back(std::array<int, 2> {m.eval(s[0][i]).get_numeral_int(), m.eval(s[1][i]).get_numeral_int()});
 			aig.p.emplace_back(std::array<int, 2> {m.eval(p[0][i]).is_true(), m.eval(p[1][i]).is_true()});

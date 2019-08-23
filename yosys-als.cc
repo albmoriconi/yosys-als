@@ -118,7 +118,7 @@ struct AlsWorker {
 		log_header(top_mod->design, "Running SMT exact synthesis for LUTs.\n");
 		for (auto cell : top_mod->cells()) {
 			if (cell->hasParam("\\LUT"))
-				synthesize_lut(cell, 0);
+				synthesize_lut(cell, 1);
 		}
 		if (debug)
 			log("\n");
