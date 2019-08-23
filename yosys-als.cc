@@ -26,11 +26,16 @@ PRIVATE_NAMESPACE_BEGIN
 struct AlsWorker {
 	bool debug = false;
 	dict<IdString, smt::aig_model_t> synthesized_luts;
+	dict<IdString, smt::aig_model_t> approximated_luts;
 
-	void synthesize_lut(const Cell *const cell, const int ax_degree) {
+	smt::aig_model_t synthesize_lut(const Cell *const cell, const int ax_degree) {
 		if (debug) {
 			log("\n=== %s ===\n\n", cell->name.c_str());
-			log("   LUT function: %s\n\n", cell->getParam("\\LUT").as_string().c_str());
+			log("   LUT function: %s\n", cell->getParam("\\LUT").as_string().c_str());
+			if (ax_degree > 0)
+				log("   Approximation degree: %d\n\n", ax_degree);
+			else
+				log("\n");
 		}
 
 		smt::aig_model_t aig = smt::lut_synthesis(cell->getParam("\\LUT").as_string(), ax_degree);
@@ -48,7 +53,7 @@ struct AlsWorker {
 			log("      Out\t\t%dp%d\n", aig.out, aig.out_p);
 		}
 
-		synthesized_luts[cell->name] = aig;
+		return aig;
 	}
 
 	void replace_synthesized_luts(Module *const top_mod) const {
@@ -117,8 +122,16 @@ struct AlsWorker {
 		// 2. SMT exact synthesis
 		log_header(top_mod->design, "Running SMT exact synthesis for LUTs.\n");
 		for (auto cell : top_mod->cells()) {
-			if (cell->hasParam("\\LUT"))
-				synthesize_lut(cell, 0);
+			if (cell->hasParam("\\LUT")) {
+				synthesized_luts[cell->name] = synthesize_lut(cell, 0);
+				if (synthesized_luts[cell->name].num_gates > 0) {
+					approximated_luts[cell->name] = synthesize_lut(cell, 1);
+					if (approximated_luts[cell->name].num_gates < synthesized_luts[cell->name].num_gates)
+						log("\nKeeping approximate candidate for %s.\n", cell->name.c_str());
+					else
+						approximated_luts.erase(cell->name);
+				}
+			}
 		}
 		if (debug)
 			log("\n");
