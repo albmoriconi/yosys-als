@@ -1,8 +1,9 @@
 yosys-config = /usr/local/bin/yosys-config
-srcs = yosys-als.cpp lut_synthesis.cpp
+srcs = yosys-als.cc smt-synthesis.cc
+libs = -lz3
 
 yosys-als.so: $(srcs)
-	$(yosys-config) --build $@ $^ -lz3
+	$(yosys-config) --build $@ $^ $(libs)
 
 clean:
 	rm -rf *.so *.dSYM *.d

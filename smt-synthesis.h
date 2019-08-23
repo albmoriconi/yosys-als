@@ -1,0 +1,61 @@
+/* -*- c++ -*-
+ *  yosys-als -- Approximate logic synthesis
+ *
+ *  Copyright (C) 2019  Alberto Moriconi <a.moriconi@studenti.unina.it>
+ *
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
+#ifndef YOSYS_ALS_SMT_SYNTHESIS_H
+#define YOSYS_ALS_SMT_SYNTHESIS_H
+
+#include <string>
+#include <utility>
+#include <vector>
+
+/**
+ * \brief SMT AIG synthesis namespace
+ */
+namespace smt {
+
+	/**
+	 * \brief An AIG model
+	 * The first \c num_inputs entries of \c s are the AIG primary inputs.
+	 * The first input is always the constant zero.
+	 * The output of the last entry of \c s is the AIG primary output.
+	 */
+	struct aig_model_t {
+		/// Number of inputs to the model
+		int num_inputs;
+
+		/// Inputs to the AND gates in the model
+		std::vector<std::pair<int, int>> s;
+
+		/// Polarities of the AND inputs
+		std::vector<std::pair<bool, bool>> p;
+
+		/// Polarity of the output of the last AND gate
+		bool out_p;
+	};
+
+	/**
+	 * \brief SMT AIG exact synthesis for given function specification
+	 * @param fun_spec The function specification string
+	 * @param ax_degree The maximum bit-distance of the synthesized function
+	 * @return The synthesized AIG model
+	 */
+	aig_model_t lut_synthesis(const std::string &fun_spec, int ax_degree);
+}
+
+#endif //YOSYS_ALS_SMT_SYNTHESIS_H
