@@ -140,11 +140,10 @@ namespace smt {
 	 * @param ax_degree The approximation degree
 	 * @return The variable in AIGER convention (multiplied by 2, plus 1 if negated)
 	 */
-	 // FIXME Doesn't seem to be working correctly
 	int is_single_var(const std::string &fun_spec, const int ax_degree) {
 		unsigned num_vars = ceil_log2(fun_spec.size());
 
-		for (size_t i = 1; i < num_vars + 1; i++) {
+		for (size_t i = 0; i < num_vars + 1; i++) {
 			if (distance(fun_spec, truth_column(i, num_vars, true)) <= ax_degree)
 				return static_cast<int>(i) * 2;
 			else if (distance(fun_spec, truth_column(i, num_vars, false)) <= ax_degree)
@@ -200,10 +199,11 @@ namespace smt {
 			aig.p.emplace_back(std::array<int, 2> {1, 1});
 		}
 
-		if (int sel_var = is_single_var(fun_spec, ax_degree) != -1) {
+		int sel_var;
+		if ((sel_var = is_single_var(fun_spec, ax_degree)) != -1) {
 			aig.num_gates = 0;
 			aig.out = sel_var / 2;
-			aig.out_p = sel_var % 2;
+			aig.out_p = (sel_var % 2 == 0) ? 1 : 0;
 			return aig;
 		}
 
