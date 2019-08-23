@@ -139,6 +139,8 @@ namespace smt {
 
 		auto num_vars = ceil_log2(fun_spec.size());
 
+		// TODO Handle constant and single variable cases
+
 		z3::context ctx;
 		z3::solver slv(ctx);
 
@@ -214,13 +216,15 @@ namespace smt {
 
 		aig.num_inputs = static_cast<int>(num_vars) + 1;
 		for (size_t i = 0; i < num_vars + 1; i++) {
-			aig.s.emplace_back(i, i);
-			aig.p.emplace_back(true, true);
+			aig.s.emplace_back(std::array<int, 2> {static_cast<int>(i), static_cast<int>(i)});
+			aig.p.emplace_back(std::array<int, 2> {1, 1});
 		}
 		for (size_t i = 0; i < s[0].size(); i++) {
-			aig.s.emplace_back(m.eval(s[0][i]).get_numeral_int(), m.eval(s[1][i]).get_numeral_int());
-			aig.p.emplace_back(m.eval(p[0][i]).is_true(), m.eval(p[1][i]).is_true());
+			aig.s.emplace_back(std::array<int, 2> {m.eval(s[0][i]).get_numeral_int(), m.eval(s[1][i]).get_numeral_int()});
+			aig.p.emplace_back(std::array<int, 2> {m.eval(p[0][i]).is_true(), m.eval(p[1][i]).is_true()});
 		}
+		aig.num_gates = static_cast<int>(aig.s.size()) - aig.num_inputs;
+		aig.out = static_cast<int>(aig.s.size()) - 1;
 		aig.out_p = m.eval(out_p).is_true();
 
 		return aig;

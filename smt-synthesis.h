@@ -20,8 +20,8 @@
 #ifndef YOSYS_ALS_SMT_SYNTHESIS_H
 #define YOSYS_ALS_SMT_SYNTHESIS_H
 
+#include <array>
 #include <string>
-#include <utility>
 #include <vector>
 
 /**
@@ -39,14 +39,20 @@ namespace smt {
 		/// Number of inputs to the model
 		int num_inputs;
 
-		/// Inputs to the AND gates in the model
-		std::vector<std::pair<int, int>> s;
+		/// Number of gates in the model
+		int num_gates;
 
-		/// Polarities of the AND inputs
-		std::vector<std::pair<bool, bool>> p;
+		/// Variables in the model
+		std::vector<std::array<int, 2>> s;
 
-		/// Polarity of the output of the last AND gate
-		bool out_p;
+		/// Polarities of variables in the model
+		std::vector<std::array<int, 2>> p;
+
+		/// Output variable
+		int out;
+
+		/// Polarity of the output
+		int out_p;
 	};
 
 	/**

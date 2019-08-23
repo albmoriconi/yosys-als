@@ -24,13 +24,6 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct AlsWorker {
-	struct and_inv_ports {
-		Wire *in1;
-		Wire *in2;
-		Wire *outp1;
-		Wire *outp0;
-	};
-
 	bool debug = false;
 	dict<IdString, smt::aig_model_t> synthesized_luts;
 
@@ -44,17 +37,76 @@ struct AlsWorker {
 
 		if (debug) {
 			for (int i = 0; i < GetSize(aig.s); i++) {
-				log("      %d\t", i);
+				log("      %d\t\t\t", i);
 				if (i == 0)
 					log("C0\n");
 				else if (i < aig.num_inputs)
 					log("PI\n");
 				else
-					log("AND(%dp%d, %dp%d)\n", aig.s[i].first, aig.p[i].first, aig.s[i].second, aig.p[i].second);
+					log("AND(%dp%d, %dp%d)\n", aig.s[i][0], aig.p[i][0], aig.s[i][1], aig.p[i][1]);
 			}
+			log("      Out\t\t%dp%d\n", aig.out, aig.out_p);
 		}
 
 		synthesized_luts[cell->name] = aig;
+	}
+
+	void replace_synthesized_luts(Module *const top_mod) const {
+		for (auto &lut : synthesized_luts) {
+			replace_lut(top_mod, lut);
+			if (debug)
+				log("Replaced %s.\n", lut.first.c_str());
+		}
+	}
+
+	void replace_lut(Module *const top_mod, const pair<IdString, smt::aig_model_t> &lut) const {
+		// Vector of variables in the model
+		std::array<SigSpec, 2> vars;
+		vars[1].append(State::S0);
+
+		// Get LUT ins and outs
+		SigSpec lut_out;
+		for (auto &conn : top_mod->cell(lut.first)->connections()) {
+			if (top_mod->cell(lut.first)->input(conn.first))
+				vars[1].append(conn.second);
+			else if (top_mod->cell(lut.first)->output(conn.first))
+				lut_out = conn.second;
+		}
+
+		// Create AND gates
+		std::array<std::vector<Wire *>, 2> and_ab;
+		for (int i = 0; i < lut.second.num_gates; i++) {
+			Wire *and_a = top_mod->addWire(NEW_ID);
+			Wire *and_b = top_mod->addWire(NEW_ID);
+			Wire *and_y = top_mod->addWire(NEW_ID);
+			top_mod->addAndGate(NEW_ID, and_a, and_b, and_y);
+			and_ab[0].push_back(and_a);
+			and_ab[1].push_back(and_b);
+			vars[1].append(and_y);
+		}
+
+		// Negate variables
+		for (auto &sig : vars[1]) {
+			Wire *not_y = top_mod->addWire(NEW_ID);
+			top_mod->addNotGate(NEW_ID, sig, not_y);
+			vars[0].append(not_y);
+		}
+
+		// Create connections
+		assert(GetSize(and_ab[0]) == GetSize(and_ab[1]));
+		assert(GetSize(vars[0]) == GetSize(vars[1]));
+		for (int i = 0; i < GetSize(and_ab[0]); i++) {
+			for (int c = 0; c < GetSize(and_ab); c++) {
+				int g_idx = lut.second.num_inputs + i;
+				int p = lut.second.p[g_idx][c];
+				int s = lut.second.s[g_idx][c];
+				top_mod->connect(and_ab[c][i], vars[p][s]);
+			}
+		}
+		top_mod->connect(lut_out, vars[lut.second.out_p][lut.second.out]);
+
+		// Delete LUT
+		top_mod->remove(top_mod->cell(lut.first));
 	}
 
 	void run(Module *top_mod) {
@@ -63,7 +115,7 @@ struct AlsWorker {
 		log("\n");
 
 		// 2. SMT exact synthesis
-		log_header(top_mod->design, "Running SMT exact synthesis for LUTs\n");
+		log_header(top_mod->design, "Running SMT exact synthesis for LUTs.\n");
 		for (auto cell : top_mod->cells()) {
 			if (cell->hasParam("\\LUT"))
 				synthesize_lut(cell, 0);
@@ -71,79 +123,13 @@ struct AlsWorker {
 		if (debug)
 			log("\n");
 
-		// 3. Update design
-		// TODO Handle constant case
-		/*
-		for (auto &lut : synthesized_luts) {
-		    // Save LUT ins and outs
-		    SigSpec lut_in;
-		    SigSpec lut_out;
-		    for (auto &conn : top_mod->cell(lut.first)->connections()) {
-			if (top_mod->cell(lut.first)->input(conn.first))
-			    lut_in = conn.second;
-			else if (top_mod->cell(lut.first)->output(conn.first))
-			    lut_out = conn.second;
-		    }
-
-		    // Prepare negate LUT ins
-		    SigSpec lut_in_p0(lut_in.size());
-		    top_mod->addNot(NEW_ID, lut_in, lut_in_p0);
-
-		    // Create AND gates
-		    std::vector<and_inv_ports> cell_ports;
-		    for (size_t i = 0; i < lut.second.s.size(); i++) {
-			Wire *in1 = top_mod->addWire(NEW_ID);
-			Wire *in2 = top_mod->addWire(NEW_ID);
-			Wire *outp1 = top_mod->addWire(NEW_ID);
-			Wire *outp0 = top_mod->addWire(NEW_ID);
-			top_mod->addAndGate(NEW_ID, in1, in2, outp1);
-			top_mod->addNotGate(NEW_ID, outp1, outp0);
-			cell_ports.push_back(and_inv_ports {in1, in2, outp1, outp0});
-		    }
-
-		    // Create connections
-		    for (size_t i = 0; i < lut.second.s.size(); i++) {
-			auto curr_ins = lut.second.s[i];
-			auto curr_ins_p = lut.second.p[i];
-
-			if (curr_ins.first < lut_in.size() + 1) {
-			    if (curr_ins_p.first)
-				top_mod->connect(cell_ports[i].in1, lut_in[curr_ins.first - 1]);
-			    else
-				top_mod->connect(cell_ports[i].in1, lut_in_p0[curr_ins.first - 1]);
-			} else {
-			    if (curr_ins_p.first)
-				top_mod->connect(cell_ports[i].in1, cell_ports[curr_ins.first - lut_in.size() - 1].outp1);
-			    else
-				top_mod->connect(cell_ports[i].in1, cell_ports[curr_ins.first - lut_in.size() - 1].outp0);
-			}
-
-			if (curr_ins.second < lut_in.size() + 1) {
-			    if (curr_ins_p.second)
-				top_mod->connect(cell_ports[i].in2, lut_in[curr_ins.second - 1]);
-			    else
-				top_mod->connect(cell_ports[i].in2, lut_in_p0[curr_ins.second - 1]);
-			} else {
-			    if (curr_ins_p.second)
-				top_mod->connect(cell_ports[i].in2, cell_ports[curr_ins.second - lut_in.size() - 1].outp1);
-			    else
-				top_mod->connect(cell_ports[i].in2, cell_ports[curr_ins.second - lut_in.size() - 1].outp0);
-			}
-		    }
-		    if (lut.second.out_p)
-			top_mod->connect(lut_out, cell_ports.back().outp1);
-		    else
-			top_mod->connect(lut_out, cell_ports.back().outp0);
-
-		    // Delete LUT
-		    // TODO Can we do this better?
-		    top_mod->remove(top_mod->cell(lut.first));
-		}
-		 */
+		// 3. Replace synthesized LUTs
+		log_header(top_mod->design, "Replacing synthesized LUTs.\n");
+		replace_synthesized_luts(top_mod);
 
 		// 4. Clean and reduce
 		Pass::call(top_mod->design, "opt_clean");
-		//Pass::call(design, "abc -script +strash;ifraig;dc2");
+		//Pass::call(top_mod->design, "abc -script +strash;ifraig;dc2");
 		Pass::call(top_mod->design, "freduce");
 
 		// 5. Print stats
@@ -160,6 +146,9 @@ struct AlsPass : public Pass {
 		log("    als [options] [top-level]\n");
 		log("\n");
 		log("This command executes an approximate logic synthesis.\n");
+		log("\n");
+		log("    -d\n");
+		log("        enable debug output\n");
 		log("\n");
 	}
 
