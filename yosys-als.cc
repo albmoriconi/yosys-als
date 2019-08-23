@@ -131,6 +131,7 @@ struct AlsWorker {
 		Pass::call(top_mod->design, "opt_clean");
 		//Pass::call(top_mod->design, "abc -script +strash;ifraig;dc2");
 		Pass::call(top_mod->design, "freduce");
+		Pass::call(top_mod->design, "opt_clean");
 
 		// 5. Print stats
 		Pass::call(top_mod->design, "stat");
