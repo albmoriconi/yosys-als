@@ -159,7 +159,7 @@ struct AlsPass : public Pass {
     void help() YS_OVERRIDE {
         //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
         log("\n");
-        log("    als [options] [top-level]\n");
+        log("    als [options]\n");
         log("\n");
         log("This command executes an approximate logic synthesis.\n");
         log("\n");
