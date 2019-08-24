@@ -17,8 +17,8 @@
  *
  */
 
-#ifndef YOSYS_ALS_SMT_SYNTHESIS_H
-#define YOSYS_ALS_SMT_SYNTHESIS_H
+#ifndef YOSYS_ALS_SMTSYNTH_H
+#define YOSYS_ALS_SMTSYNTH_H
 
 #include <array>
 #include <string>
@@ -27,7 +27,7 @@
 /**
  * \brief SMT AIG synthesis namespace
  */
-namespace smt {
+namespace smtsynth {
 
     /**
      * \brief An AIG model
@@ -64,4 +64,4 @@ namespace smt {
     aig_model_t lut_synthesis(const std::string &fun_spec, int ax_degree);
 }
 
-#endif //YOSYS_ALS_SMT_SYNTHESIS_H
+#endif //YOSYS_ALS_SMTSYNTH_H

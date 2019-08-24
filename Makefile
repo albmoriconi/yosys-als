@@ -1,8 +1,8 @@
 yosys-config = /usr/local/bin/yosys-config
-srcs = yosys-als.cc smt-synthesis.cc
+srcs = als.cc smtsynth.cc
 libs = -lz3
 
-yosys-als.so: $(srcs)
+als.so: $(srcs)
 	$(yosys-config) --build $@ $^ $(libs)
 
 clean:

@@ -17,18 +17,20 @@
  *
  */
 
-#include "smt-synthesis.h"
+#include "smtsynth.h"
 #include "kernel/yosys.h"
+
+using namespace smtsynth;
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct AlsWorker {
     bool debug = false;
-    dict<IdString, smt::aig_model_t> synthesized_luts;
-    dict<IdString, smt::aig_model_t> approximated_luts;
+    dict<IdString, aig_model_t> synthesized_luts;
+    dict<IdString, aig_model_t> approximated_luts;
 
-    smt::aig_model_t synthesize_lut(const Cell *const cell, const int ax_degree) {
+    aig_model_t synthesize_lut(const Cell *const cell, const int ax_degree) {
         if (debug) {
             log("\n=== %s ===\n\n", cell->name.c_str());
             log("   LUT function: %s\n", cell->getParam("\\LUT").as_string().c_str());
@@ -38,7 +40,7 @@ struct AlsWorker {
                 log("\n");
         }
 
-        smt::aig_model_t aig = smt::lut_synthesis(cell->getParam("\\LUT").as_string(), ax_degree);
+        aig_model_t aig = lut_synthesis(cell->getParam("\\LUT").as_string(), ax_degree);
 
         if (debug) {
             for (int i = 0; i < GetSize(aig.s); i++) {
@@ -64,7 +66,7 @@ struct AlsWorker {
         }
     }
 
-    void replace_lut(Module *const top_mod, const pair<IdString, smt::aig_model_t> &lut) const {
+    void replace_lut(Module *const top_mod, const pair<IdString, aig_model_t> &lut) const {
         // Vector of variables in the model
         std::array<SigSpec, 2> vars;
         vars[1].append(State::S0);

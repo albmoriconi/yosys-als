@@ -17,11 +17,11 @@
  *
  */
 
-#include "smt-synthesis.h"
+#include "smtsynth.h"
 #include "z3++.h"
 #include <array>
 
-namespace smt {
+namespace smtsynth {
 
     /*
      * Utility functions and procedures
