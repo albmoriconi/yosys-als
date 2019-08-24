@@ -168,7 +168,7 @@ struct AlsPass : public Pass {
         log("\n");
     }
 
-    void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
+    void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE {
         AlsWorker worker;
 
         log_header(design, "Executing ALS pass (approximate logic synthesis).\n");
