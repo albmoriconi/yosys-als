@@ -29,39 +29,39 @@
  */
 namespace smt {
 
-	/**
-	 * \brief An AIG model
-	 * The first \c num_inputs entries of \c s are the AIG primary inputs.
-	 * The first input is always the constant zero.
-	 * The output of the last entry of \c s is the AIG primary output.
-	 */
-	struct aig_model_t {
-		/// Number of inputs to the model
-		int num_inputs;
+    /**
+     * \brief An AIG model
+     * The first \c num_inputs entries of \c s are the AIG primary inputs.
+     * The first input is always the constant zero.
+     * The output of the last entry of \c s is the AIG primary output.
+     */
+    struct aig_model_t {
+        /// Number of inputs to the model
+        int num_inputs;
 
-		/// Number of gates in the model
-		int num_gates;
+        /// Number of gates in the model
+        int num_gates;
 
-		/// Variables in the model
-		std::vector<std::array<int, 2>> s;
+        /// Variables in the model
+        std::vector<std::array<int, 2>> s;
 
-		/// Polarities of variables in the model
-		std::vector<std::array<int, 2>> p;
+        /// Polarities of variables in the model
+        std::vector<std::array<int, 2>> p;
 
-		/// Output variable
-		int out;
+        /// Output variable
+        int out;
 
-		/// Polarity of the output
-		int out_p;
-	};
+        /// Polarity of the output
+        int out_p;
+    };
 
-	/**
-	 * \brief SMT AIG exact synthesis for given function specification
-	 * @param fun_spec The function specification string
-	 * @param ax_degree The maximum bit-distance of the synthesized function
-	 * @return The synthesized AIG model
-	 */
-	aig_model_t lut_synthesis(const std::string &fun_spec, int ax_degree);
+    /**
+     * \brief SMT AIG exact synthesis for given function specification
+     * @param fun_spec The function specification string
+     * @param ax_degree The maximum bit-distance of the synthesized function
+     * @return The synthesized AIG model
+     */
+    aig_model_t lut_synthesis(const std::string &fun_spec, int ax_degree);
 }
 
 #endif //YOSYS_ALS_SMT_SYNTHESIS_H
