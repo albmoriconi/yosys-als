@@ -27,15 +27,14 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct AlsWorker {
     bool debug = false;
-    dict<IdString, aig_model_t> synthesized_luts;
-    dict<IdString, aig_model_t> approximated_luts;
+    dict<std::string, aig_model_t> synthesized_luts;
+    dict<std::string, aig_model_t> approximated_luts;
 
     aig_model_t synthesize_lut(const Cell *const cell, const int ax_degree) {
         if (debug) {
-            log("\n=== %s ===\n\n", cell->name.c_str());
-            log("   LUT function: %s\n", cell->getParam("\\LUT").as_string().c_str());
+            log("\n=== LUT %s ===\n", cell->getParam("\\LUT").as_string().c_str());
             if (ax_degree > 0)
-                log("   Approximation degree: %d\n\n", ax_degree);
+                log("\n   Approximation degree: %d\n\n", ax_degree);
             else
                 log("\n");
         }
@@ -59,11 +58,142 @@ struct AlsWorker {
     }
 
     void replace_synthesized_luts(Module *const top_mod) const {
-        for (auto &lut : synthesized_luts) {
-            replace_lut(top_mod, lut);
-            if (debug)
-                log("Replaced %s.\n", lut.first.c_str());
+        dict<IdString, aig_model_t> sub_index;
+        for (auto cell : top_mod->cells()) {
+            if (cell->hasParam("\\LUT")) {
+                auto fun_spec = cell->getParam("\\LUT").as_string();
+                auto lut_it = synthesized_luts.find(fun_spec);
+
+                if (lut_it != synthesized_luts.end())
+                    sub_index[cell->name] = lut_it->second;
+            }
         }
+
+        for (auto &sub : sub_index) {
+            replace_lut(top_mod, sub);
+            if (debug)
+                log("Replaced %s in %s.\n", sub.first.c_str(), top_mod->name.c_str());
+        }
+    }
+
+    int count_and_cells(Module *top_mod) const {
+        int and_cells = 0;
+
+        for (auto cell : top_mod->cells()) {
+            if (cell->type == "$_AND_")
+                and_cells++;
+        }
+
+        return and_cells;
+    }
+
+    void replace_approximated_greedy(Module *top_mod) const {
+        log_header(top_mod->design, "Finding best approximate LUT substitution.\n");
+        log_push();
+
+        // 0. Some book keping
+        Design *design = top_mod->design;
+        IdString top_mod_id = top_mod->name;
+        IdString working_id = RTLIL::escape_id("als_working");
+
+        // 1. Save module
+        Module *working = top_mod->clone();
+        working->name = working_id;
+        working->design = design;
+        working->attributes.erase("\\top");
+        design->modules_[working_id] = working;
+        if (debug)
+            log("Keeping a copy of baseline design.\n");
+
+        // 2. Replace synthesized LUTs, clean, freduce, keep track of cells
+        log_header(design, "Replacing exact synthesized LUTs.\n");
+        replace_synthesized_luts(working);
+        Pass::call_on_module(design, working, "opt_clean");
+        Pass::call_on_module(design, working, "freduce");
+        Pass::call_on_module(design, working, "opt_clean");
+
+        // 3. Evaluate baseline
+        int and_cells_baseline = count_and_cells(working);
+        if (debug)
+            log("\nLogic cells for baseline: %d\n", and_cells_baseline);
+        int best_reward = 0;
+
+        working = top_mod->clone();
+        working->name = working_id;
+        working->design = design;
+        working->attributes.erase("\\top");
+        design->modules_[working_id] = working;
+        log_header(design, "Replacing approximate synthesized LUTs.\n");
+
+        dict<IdString, aig_model_t> sub_index;
+        dict<IdString, aig_model_t> ax_sub_index;
+        for (auto cell : working->cells()) {
+            if (cell->hasParam("\\LUT")) {
+                auto fun_spec = cell->getParam("\\LUT").as_string();
+                auto lut_it = synthesized_luts.find(fun_spec);
+                auto ax_lut_it = approximated_luts.find(fun_spec);
+
+                if (lut_it != synthesized_luts.end())
+                    sub_index[cell->name] = lut_it->second;
+                if (ax_lut_it != approximated_luts.end())
+                    ax_sub_index[cell->name] = ax_lut_it->second;
+            }
+        }
+
+        std::pair<IdString, aig_model_t> best_sub;
+        for (auto &axlut : ax_sub_index) {
+            replace_lut(working, axlut);
+            if (debug)
+                log("Replaced %s (approximate) in %s.\n", axlut.first.c_str(), working->name.c_str());
+
+            for (auto &exlut : sub_index) {
+                if (exlut.first != axlut.first) {
+                    replace_lut(working, exlut);
+                    if (debug)
+                        log("Replaced %s in %s.\n", exlut.first.c_str(), working->name.c_str());
+                }
+            }
+
+            Pass::call_on_module(top_mod->design, working, "opt_clean");
+            Pass::call_on_module(top_mod->design, working, "freduce");
+            Pass::call_on_module(top_mod->design, working, "opt_clean");
+
+            int and_cells_candidate = count_and_cells(working);
+
+            if (debug)
+                log("\nLogic cells for candidate: %d\n", and_cells_candidate);
+
+            int reward = and_cells_baseline - and_cells_candidate;
+            if (debug)
+                log("Current step reward: %d\n", reward);
+
+            if (reward > best_reward) {
+                // Check with axmiter
+                best_reward = reward;
+                best_sub = axlut;
+                if (debug)
+                    log("New best reward\n");
+            }
+            if (debug)
+                log("\n");
+
+            // Restore design
+            working = top_mod->clone();
+            working->name = working_id;
+            working->design = design;
+            working->attributes.erase("\\top");
+            design->modules_[working_id] = working;
+        }
+
+        // Restore best
+        log("Best reward: %d\n", best_reward);
+        replace_lut(top_mod, best_sub);
+        if (debug)
+            log("Replaced %s in %s.\n", best_sub.first.c_str(), top_mod->name.c_str());
+        log_pop();
+        Pass::call_on_module(design, top_mod, "opt_clean");
+        Pass::call_on_module(design, top_mod, "freduce");
+        Pass::call_on_module(design, top_mod, "opt_clean");
     }
 
     void replace_lut(Module *const top_mod, const pair<IdString, aig_model_t> &lut) const {
@@ -125,31 +255,26 @@ struct AlsWorker {
         log_header(top_mod->design, "Running SMT exact synthesis for LUTs.\n");
         for (auto cell : top_mod->cells()) {
             if (cell->hasParam("\\LUT")) {
-                synthesized_luts[cell->name] = synthesize_lut(cell, 0);
-                if (synthesized_luts[cell->name].num_gates > 0) {
-                    approximated_luts[cell->name] = synthesize_lut(cell, 1);
-                    if (approximated_luts[cell->name].num_gates < synthesized_luts[cell->name].num_gates)
-                        log("\nKeeping approximate candidate for %s.\n", cell->name.c_str());
-                    else
-                        approximated_luts.erase(cell->name);
+                std::string fun_spec = cell->getParam("\\LUT").as_string();
+
+                if (synthesized_luts.find(fun_spec) == synthesized_luts.end()) {
+                    synthesized_luts[fun_spec] = synthesize_lut(cell, 0);
+
+                    if (synthesized_luts[fun_spec].num_gates > 0) {
+                        approximated_luts[fun_spec] = synthesize_lut(cell, 1);
+                        if (approximated_luts[fun_spec].num_gates < synthesized_luts[fun_spec].num_gates)
+                            log("\nKeeping approximate candidate\n");
+                        else
+                            approximated_luts.erase(fun_spec);
+                    }
                 }
             }
         }
         if (debug)
             log("\n");
 
-        // 3. Replace synthesized LUTs
-        log_header(top_mod->design, "Replacing synthesized LUTs.\n");
-        replace_synthesized_luts(top_mod);
-
-        // 4. Clean and reduce
-        Pass::call(top_mod->design, "opt_clean");
-        //Pass::call(top_mod->design, "abc -script +strash;ifraig;dc2");
-        Pass::call(top_mod->design, "freduce");
-        Pass::call(top_mod->design, "opt_clean");
-
-        // 5. Print stats
-        Pass::call(top_mod->design, "stat");
+        // 3. Replace greedily
+        replace_approximated_greedy(top_mod);
     }
 };
 
