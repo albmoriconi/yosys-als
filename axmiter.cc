@@ -18,14 +18,17 @@
  */
 
 #include "kernel/yosys.h"
+#include <algorithm>
+#include <boost/dynamic_bitset.hpp>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct AxMiterWorker {
     bool debug = false;
+    int threshold = 0;
 
-    void run(Design *design) {
+    void run(Design *const design) {
         // TODO Select modules via args
         IdString golden_name = RTLIL::escape_id("golden");
         IdString approximate_name = RTLIL::escape_id("approximate");
@@ -86,7 +89,7 @@ struct AxMiterWorker {
         Cell *golden_cell = axmiter_module->addCell("\\golden", golden_name);
         Cell *approximate_cell = axmiter_module->addCell("\\approximate", approximate_name);
 
-        SigSpec all_conditions;
+        SigSpec all_differences;
 
         // Connect wires in miter
         for (auto &it : golden_module->wires_) {
@@ -107,55 +110,76 @@ struct AxMiterWorker {
                 golden_cell->setPort(w1->name, w2_golden);
                 approximate_cell->setPort(w1->name, w2_approximate);
 
-                SigSpec this_condition;
+                SigSpec this_difference;
 
                 Cell *sub_cell = axmiter_module->addCell(NEW_ID, "$sub");
                 sub_cell->parameters["\\A_WIDTH"] = w2_golden->width;
                 sub_cell->parameters["\\B_WIDTH"] = w2_approximate->width;
-                sub_cell->parameters["\\Y_WIDTH"] = w2_golden->width + 1;
+                sub_cell->parameters["\\Y_WIDTH"] = w2_golden->width;
                 // TODO Actually we have to check this
                 sub_cell->parameters["\\A_SIGNED"] = 0;
                 sub_cell->parameters["\\B_SIGNED"] = 0;
                 sub_cell->setPort("\\A", w2_golden);
                 sub_cell->setPort("\\B", w2_approximate);
-                sub_cell->setPort("\\Y", axmiter_module->addWire("\\subout", w2_golden->width + 1));
-                this_condition = sub_cell->getPort("\\Y");
-                this_condition.as_wire()->port_output = true;
+                sub_cell->setPort("\\Y", axmiter_module->addWire(NEW_ID, w2_golden->width));
+                this_difference = sub_cell->getPort("\\Y");
 
-                all_conditions.append(this_condition);
+                all_differences.append(this_difference);
             }
         }
 
-//        if (all_conditions.size() != 1) {
-//            RTLIL::Cell *reduce_cell = miter_module->addCell(NEW_ID, "$reduce_and");
-//            reduce_cell->parameters["\\A_WIDTH"] = all_conditions.size();
-//            reduce_cell->parameters["\\Y_WIDTH"] = 1;
-//            reduce_cell->parameters["\\A_SIGNED"] = 0;
-//            reduce_cell->setPort("\\A", all_conditions);
-//            reduce_cell->setPort("\\Y", miter_module->addWire(NEW_ID));
-//            all_conditions = reduce_cell->getPort("\\Y");
-//        }
-//
-//        if (flag_make_assert) {
-//            RTLIL::Cell *assert_cell = miter_module->addCell(NEW_ID, "$assert");
-//            assert_cell->setPort("\\A", all_conditions);
-//            assert_cell->setPort("\\EN", State::S1);
-//        }
-//
-//        RTLIL::Wire *w_trigger = miter_module->addWire("\\trigger");
-//        w_trigger->port_output = true;
-//
-//        RTLIL::Cell *not_cell = miter_module->addCell(NEW_ID, "$not");
-//        not_cell->parameters["\\A_WIDTH"] = all_conditions.size();
-//        not_cell->parameters["\\A_WIDTH"] = all_conditions.size();
-//        not_cell->parameters["\\Y_WIDTH"] = w_trigger->width;
-//        not_cell->parameters["\\A_SIGNED"] = 0;
-//        not_cell->setPort("\\A", all_conditions);
-//        not_cell->setPort("\\Y", w_trigger);
+        // TODO Find something more meaningful to do with the differences
+        // Idea: specify via args how to bulk the output, then ensure there is a single diff
+        if (GetSize(all_differences) != 1)
+            all_differences = all_differences.chunks()[0];
+
+        Wire *w_trigger = axmiter_module->addWire("\\trigger");
+        w_trigger->port_output = true;
+
+        // Low-weight comparator
+        std::string threshold_s;
+        to_string(boost::dynamic_bitset<>(all_differences.as_wire()->width, threshold), threshold_s);
+        std::reverse(threshold_s.begin(), threshold_s.end());
+        int last_one_pos = threshold_s.find_last_of('1');
+
+        SigSpec all_comparisons;
+
+        // See Ceska et al.
+        // TODO Comment this ASAP, before i forget it
+        for (int i = 0; i < last_one_pos; i++) {
+            if (threshold_s[i] == '0') {
+                SigSpec this_comparison;
+                this_comparison.append(all_differences.bits()[i]);
+
+                for (int j = i+1; j <= last_one_pos; j++) {
+                    if (threshold_s[j] == '1')
+                        this_comparison.append(all_differences.bits()[j]);
+                }
+
+                if (this_comparison.size() > 1) {
+                    Cell *reduce_cell = axmiter_module->addCell(NEW_ID, "$reduce_and");
+                    reduce_cell->parameters["\\A_WIDTH"] = this_comparison.size();
+                    reduce_cell->parameters["\\Y_WIDTH"] = 1;
+                    reduce_cell->parameters["\\A_SIGNED"] = 0;
+                    reduce_cell->setPort("\\A", this_comparison);
+                    reduce_cell->setPort("\\Y", axmiter_module->addWire(NEW_ID));
+                    all_comparisons.append(reduce_cell->getPort("\\Y"));
+                }
+            }
+        }
+
+        for (int i = last_one_pos+1; i < GetSize(threshold_s); i++)
+            all_comparisons.append(all_differences.bits()[i]);
+
+        // TODO Add negative comparison, and with sign, or out
+        Cell *or_pos_cell = axmiter_module->addCell(NEW_ID, "$reduce_or");
+        or_pos_cell->parameters["\\A_WIDTH"] = all_comparisons.size();
+        or_pos_cell->parameters["\\Y_WIDTH"] = w_trigger->width;
+        or_pos_cell->parameters["\\A_SIGNED"] = 0;
+        or_pos_cell->setPort("\\A", all_comparisons);
+        or_pos_cell->setPort("\\Y", w_trigger);
 
         axmiter_module->fixup_ports();
-
-        return;
     }
 };
 
@@ -172,6 +196,9 @@ struct AxMiterPass : public Pass {
         log("    -d\n");
         log("        enable debug output\n");
         log("\n");
+        log("    -threshold <N>\n");
+        log("        specify threshold for approximation miter\n");
+        log("\n");
     }
 
     void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE {
@@ -184,6 +211,10 @@ struct AxMiterPass : public Pass {
         for (argidx = 1; argidx < args.size(); argidx++) {
             if (args[argidx] == "-d") {
                 worker.debug = true;
+                continue;
+            }
+            if (args[argidx] == "-threshold" && argidx+1 < args.size()) {
+                worker.threshold = atoi(args[++argidx].c_str());
                 continue;
             }
         }
