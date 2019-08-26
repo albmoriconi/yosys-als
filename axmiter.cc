@@ -167,16 +167,80 @@ struct AxMiterWorker {
             }
         }
 
-        for (int i = last_one_pos+1; i < GetSize(threshold_s); i++)
+        log("%s\n", log_signal(all_comparisons));
+
+        for (int i = last_one_pos+1; i < GetSize(threshold_s) - 1; i++)
             all_comparisons.append(all_differences.bits()[i]);
 
-        // TODO Add negative comparison, and with sign, or out
+        log("%s\n", log_signal(all_comparisons));
+
+        std::string threshold_s_n;
+        to_string(boost::dynamic_bitset<>(all_differences.as_wire()->width, threshold-1), threshold_s_n);
+        std::reverse(threshold_s_n.begin(), threshold_s_n.end());
+        int last_one_pos_n = threshold_s_n.find_last_of('1');
+
+        SigSpec all_comparisons_n;
+
+        for (int i = 0; i < last_one_pos; i++) {
+            if (threshold_s_n[i] == '0') {
+                Wire *diff_zero_out = axmiter_module->addWire(NEW_ID);
+                axmiter_module->addNotGate(NEW_ID, all_differences.bits()[i], diff_zero_out);
+
+                SigSpec this_comparison;
+                this_comparison.append(diff_zero_out);
+
+                for (int j = i+1; j <= last_one_pos; j++) {
+                    if (threshold_s_n[j] == '1') {
+                        Wire *diff_one_out = axmiter_module->addWire(NEW_ID);
+                        axmiter_module->addNotGate(NEW_ID, all_differences.bits()[j], diff_one_out);
+                        this_comparison.append(diff_one_out);
+                    }
+                }
+
+                if (this_comparison.size() > 1) {
+                    Cell *reduce_cell = axmiter_module->addCell(NEW_ID, "$reduce_and");
+                    reduce_cell->parameters["\\A_WIDTH"] = this_comparison.size();
+                    reduce_cell->parameters["\\Y_WIDTH"] = 1;
+                    reduce_cell->parameters["\\A_SIGNED"] = 0;
+                    reduce_cell->setPort("\\A", this_comparison);
+                    reduce_cell->setPort("\\Y", axmiter_module->addWire(NEW_ID));
+                    all_comparisons_n.append(reduce_cell->getPort("\\Y"));
+                }
+            }
+        }
+
+        for (int i = last_one_pos_n+1; i < GetSize(threshold_s_n) - 1; i++) {
+            Wire *diff_last_out = axmiter_module->addWire(NEW_ID);
+            axmiter_module->addNotGate(NEW_ID, all_differences.bits()[i], diff_last_out);
+            all_comparisons_n.append(diff_last_out);
+        }
+
+        log("%s\n", log_signal(all_comparisons));
+        Wire *w_pos = axmiter_module->addWire(NEW_ID);
         Cell *or_pos_cell = axmiter_module->addCell(NEW_ID, "$reduce_or");
         or_pos_cell->parameters["\\A_WIDTH"] = all_comparisons.size();
-        or_pos_cell->parameters["\\Y_WIDTH"] = w_trigger->width;
+        or_pos_cell->parameters["\\Y_WIDTH"] = 1;
         or_pos_cell->parameters["\\A_SIGNED"] = 0;
         or_pos_cell->setPort("\\A", all_comparisons);
-        or_pos_cell->setPort("\\Y", w_trigger);
+        or_pos_cell->setPort("\\Y", w_pos);
+
+        Wire *w_neg = axmiter_module->addWire(NEW_ID);
+        Cell *or_neg_cell = axmiter_module->addCell(NEW_ID, "$reduce_or");
+        or_neg_cell->parameters["\\A_WIDTH"] = all_comparisons_n.size();
+        or_neg_cell->parameters["\\Y_WIDTH"] = w_trigger->width;
+        or_neg_cell->parameters["\\A_SIGNED"] = 0;
+        or_neg_cell->setPort("\\A", all_comparisons_n);
+        or_neg_cell->setPort("\\Y", w_neg);
+
+        Wire *not_sign = axmiter_module->addWire(NEW_ID);
+        axmiter_module->addNotGate(NEW_ID, all_differences[GetSize(all_differences)-1], not_sign);
+        Wire *pos_trigger = axmiter_module->addWire(NEW_ID);
+        axmiter_module->addAndGate(NEW_ID, w_pos, not_sign, pos_trigger);
+
+        Wire *neg_trigger = axmiter_module->addWire(NEW_ID);
+        axmiter_module->addAndGate(NEW_ID, w_neg, all_differences[GetSize(all_differences)-1], neg_trigger);
+
+        axmiter_module->addOrGate(NEW_ID, pos_trigger, neg_trigger, w_trigger);
 
         axmiter_module->fixup_ports();
     }

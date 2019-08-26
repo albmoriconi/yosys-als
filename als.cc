@@ -28,6 +28,8 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct AlsWorker {
     bool debug = false;
+    bool first_step = true;
+    bool done_something = false;
     dict<std::string, aig_model_t> synthesized_luts;
     dict<std::string, aig_model_t> approximated_luts;
     std::stack<dict<IdString, aig_model_t>> substitution_stack;
@@ -117,6 +119,7 @@ struct AlsWorker {
     }
 
     // TODO This can be better
+    // We should create our SAT instance and check it
     bool checkSat(Module *axmiter) const {
         std::ifstream oldFile("axmiter.json");
         if (oldFile.good())
@@ -140,6 +143,13 @@ struct AlsWorker {
         // 0. Some book keeping
         IdString top_mod_id = top_mod->name;
         IdString working_id = RTLIL::escape_id("als_working");
+        IdString golden_id = RTLIL::escape_id("als_golden");
+
+        if (first_step) {
+            cloneInSameDesign(top_mod, golden_id);
+            if (debug)
+                log("Keeping a copy of golden design.\n");
+        }
 
         // 1. Make a working copy
         Module *working = cloneInSameDesign(top_mod, working_id);
@@ -196,11 +206,12 @@ struct AlsWorker {
 
             if (reward > best_reward) {
                 // TODO Remove hardcoded strings
-                Pass::call(working->design, "axmiter -threshold 5 mult_2_bit als_working axmiter");
+                Pass::call(working->design, "axmiter -threshold 4 als_golden als_working axmiter");
                 Pass::call_on_module(working->design, working->design->modules_["\\axmiter"], "flatten");
                 if (checkSat(top_mod->design->modules_["\\axmiter"])) {
                     best_reward = reward;
                     best_substitution = substitution_stack.top();
+                    done_something = true;
                     if (debug)
                         log("\nNew best reward\n");
                 }
@@ -218,7 +229,11 @@ struct AlsWorker {
 
         // Restore best
         log("Best reward: %d\n", best_reward);
-        substitution_stack.push(best_substitution);
+        if (done_something)
+            substitution_stack.push(best_substitution);
+        else
+            push_substitution_index(top_mod);
+
         replace_indexed_luts(top_mod);
         post_substitution(top_mod);
         substitution_stack.pop();
@@ -276,6 +291,8 @@ struct AlsWorker {
     }
 
     void run(Module *top_mod) {
+        done_something = false;
+
         // 1. 4-LUT synthesis
         ScriptPass::call(top_mod->design, "synth -lut 4");
         log("\n");
@@ -351,7 +368,9 @@ struct AlsPass : public Pass {
             top_mod = mods.front();
         }
 
-        worker.run(top_mod);
+        do {
+            worker.run(top_mod);
+        } while (worker.done_something);
 
         log_pop();
     }
