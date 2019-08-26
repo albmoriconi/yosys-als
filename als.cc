@@ -110,10 +110,27 @@ struct AlsWorker {
         return copy;
     }
 
-    void post_substitution(Module *module) {
+    static void post_substitution(Module *module) {
         Pass::call_on_module(module->design, module, "opt_clean");
         Pass::call_on_module(module->design, module, "freduce");
         Pass::call_on_module(module->design, module, "opt_clean");
+    }
+
+    // TODO This can be better
+    bool checkSat(Module *axmiter) const {
+        std::ifstream oldFile("axmiter.json");
+        if (oldFile.good())
+            std::remove("axmiter.json");
+
+        Pass::call(axmiter->design, "sat -prove trigger 0 -dump_json axmiter.json axmiter");
+
+        std::ifstream newFile("axmiter.json");
+        if (newFile.good()) {
+            std::remove("axmiter.json");
+            return false;
+        }
+
+        return true;
     }
 
     void replace_approximated_greedy(Module *top_mod) {
@@ -178,11 +195,16 @@ struct AlsWorker {
             }
 
             if (reward > best_reward) {
-                // TODO Check with axmiter
-                best_reward = reward;
-                best_substitution = substitution_stack.top();
-                if (debug)
-                    log("New best reward\n");
+                // TODO Remove hardcoded strings
+                Pass::call(working->design, "axmiter -threshold 5 mult_2_bit als_working axmiter");
+                Pass::call_on_module(working->design, working->design->modules_["\\axmiter"], "flatten");
+                if (checkSat(top_mod->design->modules_["\\axmiter"])) {
+                    best_reward = reward;
+                    best_substitution = substitution_stack.top();
+                    if (debug)
+                        log("\nNew best reward\n");
+                }
+                Pass::call(working->design, "delete axmiter");
             }
             if (debug)
                 log("\n");

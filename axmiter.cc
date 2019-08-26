@@ -28,16 +28,15 @@ struct AxMiterWorker {
     bool debug = false;
     int threshold = 0;
 
-    void run(Design *const design) {
-        // TODO Select modules via args
-        IdString golden_name = RTLIL::escape_id("golden");
-        IdString approximate_name = RTLIL::escape_id("approximate");
-        IdString axmiter_name = RTLIL::escape_id("axmiter");
+    IdString golden_name;
+    IdString approximate_name;
+    IdString axmiter_name;
 
+    void run(Design *const design) {
         if (design->modules_.count(golden_name) == 0)
-            log_cmd_error("Can't find gold module %s!\n", golden_name.c_str());
+            log_cmd_error("Can't find golden module %s!\n", golden_name.c_str());
         if (design->modules_.count(approximate_name) == 0)
-            log_cmd_error("Can't find gate module %s!\n", approximate_name.c_str());
+            log_cmd_error("Can't find approximate module %s!\n", approximate_name.c_str());
         if (design->modules_.count(axmiter_name) != 0)
             log_cmd_error("There is already a module %s!\n", axmiter_name.c_str());
 
@@ -189,7 +188,7 @@ struct AxMiterPass : public Pass {
     void help() YS_OVERRIDE {
         //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
         log("\n");
-        log("    axmiter [options]\n");
+        log("    axmiter [options] golden_name approximate_name axmiter_name\n");
         log("\n");
         log("This command generates an approximation miter for worst-error case analysis.\n");
         log("\n");
@@ -217,9 +216,15 @@ struct AxMiterPass : public Pass {
                 worker.threshold = atoi(args[++argidx].c_str());
                 continue;
             }
+            break;
         }
-        extra_args(args, argidx, design);
 
+        if (argidx+3 != args.size() || args[argidx].compare(0, 1, "-") == 0)
+            cmd_error(args, argidx, "command argument error");
+
+        worker.golden_name = RTLIL::escape_id(args[argidx++]);
+        worker.approximate_name = RTLIL::escape_id(args[argidx++]);
+        worker.axmiter_name = RTLIL::escape_id(args[argidx++]);
         worker.run(design);
 
         log_pop();
