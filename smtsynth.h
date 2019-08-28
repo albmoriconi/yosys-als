@@ -17,8 +17,15 @@
  *
  */
 
+/**
+ * \file
+ * \brief SMT synthesis for Yosys ALS module
+ */
+
 #ifndef YOSYS_ALS_SMTSYNTH_H
 #define YOSYS_ALS_SMTSYNTH_H
+
+#include <boost/dynamic_bitset.hpp>
 
 #include <array>
 #include <string>
@@ -27,7 +34,7 @@
 /**
  * \brief SMT AIG synthesis namespace
  */
-namespace smtsynth {
+namespace yosys_als {
 
     /**
      * \brief An AIG model
@@ -57,11 +64,11 @@ namespace smtsynth {
 
     /**
      * \brief SMT AIG exact synthesis for given function specification
-     * @param fun_spec The function specification string
+     * @param fun_spec The function specification
      * @param ax_degree The maximum bit-distance of the synthesized function
      * @return The synthesized AIG model
      */
-    aig_model_t lut_synthesis(const std::string &fun_spec, int ax_degree);
-}
+    aig_model_t lut_synthesis(const boost::dynamic_bitset<> &fun_spec, unsigned ax_degree);
+} // namespace yosys_als
 
 #endif //YOSYS_ALS_SMTSYNTH_H

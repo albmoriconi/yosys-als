@@ -1,5 +1,5 @@
 yosys-config = /usr/local/bin/yosys-config
-srcs = als.cc smtsynth.cc axmiter.cc
+srcs = als.cc smtsynth.cc axmiter.cc utils.cc
 libs = -lz3
 
 als.so: $(srcs)
