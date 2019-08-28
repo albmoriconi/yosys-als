@@ -31,13 +31,10 @@
 #include <string>
 #include <vector>
 
-/**
- * \brief SMT AIG synthesis namespace
- */
 namespace yosys_als {
 
     /**
-     * \brief An AIG model
+     * @brief An AIG model
      * The first \c num_inputs entries of \c s are the AIG primary inputs.
      * The first input is always the constant zero.
      * The output of the last entry of \c s is the AIG primary output.
@@ -63,12 +60,12 @@ namespace yosys_als {
     };
 
     /**
-     * \brief SMT AIG exact synthesis for given function specification
+     * @brief SMT AIG exact synthesis for given function specification
      * @param fun_spec The function specification
      * @param ax_degree The maximum bit-distance of the synthesized function
      * @return The synthesized AIG model
      */
-    aig_model_t lut_synthesis(const boost::dynamic_bitset<> &fun_spec, unsigned ax_degree);
+    aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, unsigned int ax_degree);
 } // namespace yosys_als
 
 #endif //YOSYS_ALS_SMTSYNTH_H

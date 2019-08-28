@@ -18,8 +18,8 @@
  */
 
 /**
- * \file
- * \brief Approximation miter pass for Yosys ALS module
+ * @file
+ * @brief Approximation miter pass for Yosys ALS module
  */
 
 #include "kernel/yosys.h"

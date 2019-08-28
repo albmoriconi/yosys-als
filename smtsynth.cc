@@ -18,8 +18,8 @@
  */
 
 /**
- * \file
- * \brief SMT synthesis for Yosys ALS module
+ * @file
+ * @brief SMT synthesis for Yosys ALS module
  */
 
 #include "smtsynth.h"
@@ -39,12 +39,12 @@ namespace yosys_als {
      */
 
     /**
-     * \brief Tries to satisfy a specification with a single variable
+     * @brief Tries to satisfy a specification with a single variable
      * @param fun_spec A function specification
      * @param ax_degree The approximation degree
      * @return The index of the variable in AIGER convention, or \c boost::none
      */
-    boost::optional<size_t> single_var(const boost::dynamic_bitset<> &fun_spec, const unsigned ax_degree) {
+    boost::optional<size_t> single_var(const boost::dynamic_bitset<> &fun_spec, const unsigned int ax_degree) {
         unsigned num_vars = ceil_log2(fun_spec.size());
 
         for (size_t i = 0; i < num_vars + 1; i++) {
@@ -58,15 +58,15 @@ namespace yosys_als {
     }
 
     /**
-     * \brief Enforces function semantics for given specification
+     * @brief Enforces function semantics for given specification
      * @param slv The SMT solver
      * @param fun_spec The function specification
      * @param ax_degree The approximation degree
      * @param b The variables that represents the AND gates outputs
      * @param out_p The variable that represents the polarity of the output
      */
-    void function_semantics_constraints(z3::solver &slv, const boost::dynamic_bitset<> &fun_spec,
-            const unsigned ax_degree, const std::vector<z3::expr_vector> &b, const z3::expr &out_p) {
+    void enforce_function_semantics(z3::solver &slv, const boost::dynamic_bitset<> &fun_spec,
+            const unsigned int ax_degree, const std::vector<z3::expr_vector> &b, const z3::expr &out_p) {
         if (ax_degree == 0) {
             // Exact semantics
             for (size_t t = 0; t < fun_spec.size(); t++)
@@ -87,7 +87,7 @@ namespace yosys_als {
      */
 
     // TODO Make this faster and refactor
-    aig_model_t lut_synthesis(const boost::dynamic_bitset<> &fun_spec, const unsigned ax_degree) {
+    aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, const unsigned int ax_degree) {
         if (fun_spec.empty() || !is_power_of_2(fun_spec.size()))
             throw std::invalid_argument("Function specification is invalid.");
 
@@ -128,7 +128,7 @@ namespace yosys_als {
         // Function semantics
         z3::expr out_p = ctx.bool_const("p");
         slv.push();
-        function_semantics_constraints(slv, fun_spec, ax_degree, b, out_p);
+        enforce_function_semantics(slv, fun_spec, ax_degree, b, out_p);
 
         // Solver loop
         // TODO Consider a timeout
@@ -171,7 +171,7 @@ namespace yosys_als {
 
             // Update function semantics
             slv.push();
-            function_semantics_constraints(slv, fun_spec, ax_degree, b, out_p);
+            enforce_function_semantics(slv, fun_spec, ax_degree, b, out_p);
         }
 
         // Get the solver model

@@ -18,8 +18,8 @@
  */
 
 /**
- * \file
- * \brief Utility functions for Yosys ALS module
+ * @file
+ * @brief Utility functions for Yosys ALS module
  */
 
 #ifndef YOSYS_ALS_UTILS_H
@@ -37,7 +37,7 @@ namespace yosys_als {
      */
 
     /**
-     * \brief Memory-safe string formatting for variable names
+     * \@rief Memory-safe string formatting for variable names
      * @param zcFormat Null-terminated format string
      * @param ... Variable argument list containing the data to print
      * @return The formatted string
@@ -49,27 +49,27 @@ namespace yosys_als {
      */
 
     /**
-     * \brief Check if power of two
+     * @brief Check if power of two
      * @param x An unsigned integer
      * @return \c true if \c v is a power of 2, otherwise \c false
      */
-    constexpr bool is_power_of_2(const unsigned x) {
+    constexpr bool is_power_of_2(const unsigned int x) {
         return x && ((x & (x - 1)) == 0);
     }
 
     /**
-     * \brief Fast ceil log2
+     * @brief Fast ceil log2
      * @param x An unsigned integer
      * @return The ceil log2 of \c x
      */
-    unsigned ceil_log2(unsigned x);
+    unsigned int ceil_log2(unsigned int x);
 
     /*
      * Truth tables utility functions
      */
 
     /**
-     * \brief Truth table value
+     * @brief Truth table value
      * @param i Variable index
      * @param t Row of the table
      * @return The value of given variable (variable 0 is always \c false)
@@ -82,7 +82,7 @@ namespace yosys_als {
     }
 
     /**
-     * \brief Return a column of the truth table
+     * @brief Return a column of the truth table
      * @param col The number of the column
      * @param num_vars The number of variables
      * @param p The polarity of the column
@@ -91,7 +91,7 @@ namespace yosys_als {
     boost::dynamic_bitset<> truth_table_column(size_t i, size_t num_vars, bool p);
 
     /**
-     * \brief Hamming distance between two bitsets
+     * @brief Hamming distance between two bitsets
      * @param bs1 A bitset
      * @param bs2 A bitset
      * @return The hamming distance between \c bs1 and \c bs2

@@ -18,8 +18,8 @@
  */
 
 /**
- * \file
- * \brief Utility functions for Yosys ALS module
+ * @file
+ * @brief Utility functions for Yosys ALS module
  */
 
 #include "utils.h"
@@ -48,7 +48,7 @@ namespace yosys_als {
         return std::string(zc.data(), iLen);
     }
 
-    unsigned ceil_log2(const unsigned x) {
+    unsigned ceil_log2(const unsigned int x) {
 #if defined(__GNUC__)
         return x > 1 ? (8 * sizeof(x)) - __builtin_clz(x - 1) : 0;
 #else

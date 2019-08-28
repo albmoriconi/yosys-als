@@ -18,60 +18,78 @@
  */
 
 /**
- * \file
- * \brief Approximate logic synthesis pass for Yosys ALS module
+ * @file
+ * @brief Approximate logic synthesis pass for Yosys ALS module
  */
 
 #include "smtsynth.h"
 #include "kernel/yosys.h"
 
-#include <stack>
+#include <boost/dynamic_bitset.hpp>
+
+#include <queue>
+#include <string>
+#include <vector>
 
 using yosys_als::aig_model_t;
-using yosys_als::lut_synthesis;
+using yosys_als::synthesize_lut;
 
 USING_YOSYS_NAMESPACE
 
+/**
+ * @brief Yosys ALS module namespace
+ */
 namespace yosys_als {
 
+    /**
+     * @brief Worker for the ALS pass
+     */
     struct AlsWorker {
+        /// If \c true, log debug information
         bool debug = false;
+
+        /// If \c true, the worker is executing its first step
         bool first_step = true;
+
+        /// If \c true, the worker found a positive reward in last step
         bool done_something = false;
-        dict<std::string, aig_model_t> synthesized_luts;
-        dict<std::string, aig_model_t> approximated_luts;
-        std::stack<dict<IdString, aig_model_t>> substitution_stack;
 
-        aig_model_t synthesize_lut(const Cell *const cell, const int ax_degree) {
-            if (debug) {
-                log("\n=== LUT %s ===\n", cell->getParam("\\LUT").as_string().c_str());
-                if (ax_degree > 0)
-                    log("\n   Approximation degree: %d\n\n", ax_degree);
-                else
-                    log("\n");
-            }
+        /// Index of the synthesized LUTs (kept between steps)
+        dict<Const, aig_model_t> synthesized_luts;
 
-            aig_model_t aig = lut_synthesis(boost::dynamic_bitset<>(cell->getParam("\\LUT").as_string()), ax_degree);
+        /// Index of the approximately synthesized LUTs (kept between steps)
+        dict<Const, aig_model_t> approximated_luts;
 
-            if (debug) {
-                for (int i = 0; i < GetSize(aig.s); i++) {
-                    log("      %d\t\t\t", i);
-                    if (i == 0)
-                        log("C0\n");
-                    else if (i < aig.num_inputs)
-                        log("PI\n");
-                    else
-                        log("AND(%dp%d, %dp%d)\n", aig.s[i][0], aig.p[i][0], aig.s[i][1], aig.p[i][1]);
-                }
-                log("      Out\t\t%dp%d\n", aig.out, aig.out_p);
-            }
+        /// A queue of the possible LUT-to-AIG mappings
+        std::queue<dict<IdString, aig_model_t>> lut_to_aig_mapping_queue;
+
+        /**
+         * @brief Wrapper for \c synthesize_lut
+         * @param lut The LUT specification
+         * @param ax_degree The approximation degree
+         * @return The synthesized AIG model
+         */
+        aig_model_t synthesize_lut(const Const &lut, const unsigned ax_degree) const {
+            if (debug)
+                log("LUT %s Ax: %d... ", lut.as_string().c_str(), ax_degree);
+
+            auto aig = yosys_als::synthesize_lut(boost::dynamic_bitset<>(lut.as_string()), ax_degree);
+
+            if (debug)
+                log("satisfied with %d gates.\n", aig.num_gates);
 
             return aig;
         }
 
-        void replace_indexed_luts(Module *const module) const {
-            for (auto &sub : substitution_stack.top()) {
+        /**
+         * @brief Applies LUT-to-AIG mapping to module
+         * @param module The module (modified in place)
+         * @param mapping The LUT-to-AIG mapping
+         */
+        void apply_mapping(Module *const module, const dict<IdString, aig_model_t> &mapping) const {
+            for (auto &sub : mapping) {
                 replace_lut(module, sub);
+
                 if (debug)
                     log("Replaced %s in %s.\n", sub.first.c_str(), module->name.c_str());
             }
@@ -97,7 +115,7 @@ namespace yosys_als {
                 }
             }
 
-            substitution_stack.push(substitution_index);
+            lut_to_aig_mapping_queue.push(substitution_index);
         }
 
         int count_and_cells(Module *module) const {
@@ -168,9 +186,9 @@ namespace yosys_als {
             log_header(top_mod->design, "Replacing exact synthesized LUTs.\n");
             log_push();
             push_substitution_index(working);
-            replace_indexed_luts(working);
+            apply_mapping(working);
             post_substitution(working);
-            substitution_stack.pop();
+            lut_to_aig_mapping_queue.pop();
 
             // 3. Evaluate baseline and restore module
             int and_cells_baseline = count_and_cells(working);
@@ -201,8 +219,8 @@ namespace yosys_als {
                 }
             }
 
-            while (!substitution_stack.empty()) {
-                replace_indexed_luts(working);
+            while (!lut_to_aig_mapping_queue.empty()) {
+                apply_mapping(working);
                 post_substitution(working);
 
                 int and_cells_candidate = count_and_cells(working);
@@ -218,7 +236,7 @@ namespace yosys_als {
                     Pass::call_on_module(working->design, working->design->modules_["\\axmiter"], "flatten");
                     if (checkSat(top_mod->design->modules_["\\axmiter"])) {
                         best_reward = reward;
-                        best_substitution = substitution_stack.top();
+                        best_substitution = lut_to_aig_mapping_queue.top();
                         done_something = true;
                         if (debug)
                             log("\nNew best reward\n");
@@ -230,7 +248,7 @@ namespace yosys_als {
 
                 // Restore design
                 working = cloneInSameDesign(top_mod, working_id);
-                substitution_stack.pop();
+                lut_to_aig_mapping_queue.pop();
             }
 
             log_pop();
@@ -238,13 +256,13 @@ namespace yosys_als {
             // Restore best
             log("Best reward: %d\n", best_reward);
             if (done_something)
-                substitution_stack.push(best_substitution);
+                lut_to_aig_mapping_queue.push(best_substitution);
             else
                 push_substitution_index(top_mod);
 
-            replace_indexed_luts(top_mod);
+            apply_mapping(top_mod);
             post_substitution(top_mod);
-            substitution_stack.pop();
+            lut_to_aig_mapping_queue.pop();
             log_pop();
         }
 
@@ -332,13 +350,16 @@ namespace yosys_als {
         }
     };
 
+    /**
+     * \brief Yosys ALS pass
+     */
     struct AlsPass : public Pass {
         AlsPass() : Pass("als", "approximate logic synthesis") {}
 
         void help() YS_OVERRIDE {
             //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
             log("\n");
-            log("    als [options]\n");
+            log("    als [options] [selection]\n");
             log("\n");
             log("This command executes an approximate logic synthesis.\n");
             log("\n");
@@ -348,10 +369,10 @@ namespace yosys_als {
         }
 
         void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE {
-            AlsWorker worker;
-
             log_header(design, "Executing ALS pass (approximate logic synthesis).\n");
             log_push();
+
+            AlsWorker worker;
 
             size_t argidx;
             for (argidx = 1; argidx < args.size(); argidx++) {
@@ -371,14 +392,15 @@ namespace yosys_als {
                     log_cmd_error("Design has no top module, use the 'hierarchy' command to specify one.\n");
             } else {
                 auto mods = design->selected_whole_modules();
+
                 if (GetSize(mods) != 1)
                     log_cmd_error("Only one top module must be selected.\n");
+
                 top_mod = mods.front();
             }
 
-            do {
+            while (worker.first_step || worker.done_something)
                 worker.run(top_mod);
-            } while (worker.done_something);
 
             log_pop();
         }
