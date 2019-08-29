@@ -40,6 +40,7 @@ namespace yosys_als {
         IdString approximate_name;
         IdString axmiter_name;
 
+        // TODO Cleanup
         void run(Design *const design) {
             if (design->modules_.count(golden_name) == 0)
                 log_cmd_error("Can't find golden module %s!\n", golden_name.c_str());

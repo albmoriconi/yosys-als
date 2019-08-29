@@ -86,7 +86,7 @@ namespace yosys_als {
      * Exposed functions and procedures
      */
 
-    // TODO Make this faster and refactor
+    // TODO Make this faster and refactor (consider MIG)
     aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, const unsigned int ax_degree) {
         if (fun_spec.empty() || !is_power_of_2(fun_spec.size()))
             throw std::invalid_argument("Function specification is invalid.");

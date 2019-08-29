@@ -26,8 +26,6 @@
 #include "yosys_utils.h"
 #include "kernel/yosys.h"
 
-#include <boost/dynamic_bitset.hpp>
-
 #include <queue>
 #include <string>
 #include <vector>
@@ -51,6 +49,9 @@ namespace yosys_als {
 
         /// If \c true, the worker found a positive reward in last step
         bool done_something = false;
+
+        /// Keep a copy of the golden module
+        Module *golden = nullptr;
 
         /// Index of the synthesized LUTs (kept between steps)
         dict<Const, aig_model_t> synthesized_luts;
@@ -83,29 +84,22 @@ namespace yosys_als {
             lut_to_aig_mapping_queue.push(substitution_index);
         }
 
-        void replace_approximated_greedy(Module *top_mod) {
-            log_header(top_mod->design, "Finding best approximate LUT substitution.\n");
+        // TODO Cleanup
+        void replace_approximated_greedy(Module *module) {
+            log_header(module->design, "Finding best approximate LUT substitution.\n");
             log_push();
 
             // 0. Some book keeping
-            IdString top_mod_id = top_mod->name;
+            IdString top_mod_id = module->name;
             IdString working_id = RTLIL::escape_id("als_working");
-            IdString golden_id = RTLIL::escape_id("als_golden");
-
-            if (first_step) {
-                cloneInSameDesign(top_mod, golden_id);
-                first_step = false;
-                if (debug)
-                    log("Keeping a copy of golden design.\n");
-            }
 
             // 1. Make a working copy
-            Module *working = cloneInSameDesign(top_mod, working_id);
+            Module *working = cloneInDesign(module, working_id, module->design);
             if (debug)
                 log("Keeping a copy of baseline design.\n");
 
             // 2. Replace synthesized LUTs, clean, freduce, keep track of cells
-            log_header(top_mod->design, "Replacing exact synthesized LUTs.\n");
+            log_header(module->design, "Replacing exact synthesized LUTs.\n");
             log_push();
             push_substitution_index(working);
             apply_mapping(working, lut_to_aig_mapping_queue.front(), debug);
@@ -117,20 +111,19 @@ namespace yosys_als {
             if (debug)
                 log("\nLogic cells for baseline: %d\n", and_cells_baseline);
 
-            working = cloneInSameDesign(top_mod, working_id);
+            working = cloneInDesign(module, working_id, module->design);
             int best_reward = 0;
             dict<IdString, aig_model_t> best_substitution;
             log_pop();
 
             // 4. Evaluate alternatives
-            log_header(top_mod->design, "Replacing approximate synthesized LUTs.\n");
+            log_header(module->design, "Replacing approximate synthesized LUTs.\n");
             log_push();
 
             // Populate stack
             for (auto cell : working->cells()) {
-                if (cell->hasParam("\\LUT")) {
-                    auto fun_spec = cell->getParam("\\LUT").as_string();
-                    auto ax_lut_it = approximated_luts.find(fun_spec);
+                if (is_lut(cell)) {
+                    auto ax_lut_it = approximated_luts.find(get_lut_param(cell));
 
                     if (ax_lut_it != approximated_luts.end()) {
                         if (debug)
@@ -141,6 +134,7 @@ namespace yosys_als {
                 }
             }
 
+            // TODO Cleanup
             while (!lut_to_aig_mapping_queue.empty()) {
                 apply_mapping(working, lut_to_aig_mapping_queue.front(), debug);
                 clean_and_freduce(working);
@@ -154,9 +148,10 @@ namespace yosys_als {
 
                 if (reward > best_reward) {
                     // TODO Remove hardcoded strings
+                    Pass::call(module->design, "stat");
                     Pass::call(working->design, "axmiter -threshold 4 als_golden als_working axmiter");
                     Pass::call_on_module(working->design, working->design->modules_["\\axmiter"], "flatten");
-                    if (checkSat(top_mod->design->modules_["\\axmiter"])) {
+                    if (checkSat(module->design->modules_["\\axmiter"])) {
                         best_reward = reward;
                         best_substitution = lut_to_aig_mapping_queue.front();
                         done_something = true;
@@ -169,7 +164,7 @@ namespace yosys_als {
                     log("\n");
 
                 // Restore design
-                working = cloneInSameDesign(top_mod, working_id);
+                working = cloneInDesign(module, working_id, module->design);
                 lut_to_aig_mapping_queue.pop();
             }
 
@@ -180,45 +175,57 @@ namespace yosys_als {
             if (done_something)
                 lut_to_aig_mapping_queue.push(best_substitution);
             else
-                push_substitution_index(top_mod);
+                push_substitution_index(module);
 
-            apply_mapping(top_mod, lut_to_aig_mapping_queue.front(), debug);
-            clean_and_freduce(top_mod);
+            apply_mapping(module, lut_to_aig_mapping_queue.front(), debug);
+            clean_and_freduce(module);
             lut_to_aig_mapping_queue.pop();
             log_pop();
         }
 
-        void run(Module *top_mod) {
+        /**
+         * Runs an ALS step on selected module
+         * @param module A module
+         */
+        void run_step(Module *module) {
+            // 0. Some book keeping
             done_something = false;
 
+            // TODO Remove hardcoded string
+            IdString golden_id = RTLIL::escape_id("als_golden");
+            if (first_step) {
+                golden = cloneInDesign(module, golden_id, nullptr);
+                first_step = false;
+
+                if (debug)
+                    log("Keeping a copy of golden design.\n");
+            }
+
             // 1. 4-LUT synthesis
-            ScriptPass::call(top_mod->design, "synth -lut 4");
-            log("\n");
+            ScriptPass::call(module->design, "synth -lut 4");
+            cloneInDesign(golden, golden_id, module->design);
 
             // 2. SMT exact synthesis
-            log_header(top_mod->design, "Running SMT exact synthesis for LUTs.\n");
-            for (auto cell : top_mod->cells()) {
-                if (cell->hasParam("\\LUT")) {
-                    std::string fun_spec = cell->getParam("\\LUT").as_string();
+            log_header(module->design, "Running SMT exact synthesis for LUTs.\n");
+            for (auto cell : module->cells()) {
+                if (is_lut(cell)) {
+                    const auto &fun_spec = get_lut_param(cell);
 
                     if (synthesized_luts.find(fun_spec) == synthesized_luts.end()) {
-                        synthesized_luts[fun_spec] = synthesize_lut(cell->getParam("\\LUT"), 0, debug);
+                        synthesized_luts[fun_spec] = synthesize_lut(fun_spec, 0, debug);
 
+                        // TODO Add multiple approximate candidates (e.g. 1, 2, 4)
                         if (synthesized_luts[fun_spec].num_gates > 0) {
-                            approximated_luts[fun_spec] = synthesize_lut(cell->getParam("\\LUT"), 1, debug);
-                            if (approximated_luts[fun_spec].num_gates < synthesized_luts[fun_spec].num_gates)
-                                log("\nKeeping approximate candidate\n");
-                            else
+                            approximated_luts[fun_spec] = synthesize_lut(fun_spec, 1, debug);
+                            if (approximated_luts[fun_spec].num_gates >= synthesized_luts[fun_spec].num_gates)
                                 approximated_luts.erase(fun_spec);
                         }
                     }
                 }
             }
-            if (debug)
-                log("\n");
 
             // 3. Replace greedily
-            replace_approximated_greedy(top_mod);
+            replace_approximated_greedy(module);
         }
     };
 
@@ -272,7 +279,7 @@ namespace yosys_als {
             }
 
             while (worker.first_step || worker.done_something)
-                worker.run(top_mod);
+                worker.run_step(top_mod);
 
             log_pop();
         }

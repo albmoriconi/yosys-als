@@ -62,13 +62,15 @@ namespace yosys_als {
         return cell_count;
     }
 
-    Module *cloneInSameDesign(const Module *const source, const IdString &copy_id) {
+    Module *cloneInDesign(const Module *const source, const IdString &copy_id, Design *const design) {
         Module *copy = source->clone();
 
         copy->name = copy_id;
-        copy->design = source->design;
+        copy->design = design;
         copy->attributes.erase("\\top");
-        copy->design->modules_[copy_id] = copy;
+
+        if (copy->design)
+            copy->design->modules_[copy_id] = copy;
 
         return copy;
     }

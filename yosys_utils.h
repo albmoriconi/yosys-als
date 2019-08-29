@@ -75,9 +75,10 @@ namespace yosys_als {
      * @brief Copies a module and adds it to the same design
      * @param source The module to copy
      * @param copy_id The name of the copy
+     * @param design The destination design (or \c nullptr if none)
      * @return A pointer to the created copy
      */
-    Yosys::Module *cloneInSameDesign(const Yosys::Module *source, const Yosys::IdString &copy_id);
+    Yosys::Module *cloneInDesign(const Yosys::Module *source, const Yosys::IdString &copy_id, Yosys::Design *design);
 
     /**
      * @brief Cleans dangling cells and wires in the module and functionally reduces its nodes
@@ -90,7 +91,7 @@ namespace yosys_als {
      * @param module A module
      * @return \c true if the problem is SAT, else \c false
      */
-    bool checkSat(Yosys::Module *module);
+    bool checkSat(const Yosys::Module *module);
 
     /**
      * @brief Replaces a LUT in the module
