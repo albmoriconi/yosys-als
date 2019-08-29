@@ -17,6 +17,7 @@
  *
  */
 
+// TODO Move to utils
 /**
  * @file
  * @brief SMT synthesis for Yosys ALS module

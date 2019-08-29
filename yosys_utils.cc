@@ -17,6 +17,7 @@
  *
  */
 
+// TODO Move to utils
 /**
  * @file
  * @brief RTLIL and Yosys utility functions for Yosys ALS module

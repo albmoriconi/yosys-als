@@ -17,6 +17,7 @@
  *
  */
 
+// TODO Move to passes/als directory
 /**
  * @file
  * @brief Approximation miter pass for Yosys ALS module
@@ -32,6 +33,7 @@ USING_YOSYS_NAMESPACE
 
 namespace yosys_als {
 
+    // TODO Document members
     struct AxMiterWorker {
         bool debug = false;
         int threshold = 0;
@@ -40,7 +42,8 @@ namespace yosys_als {
         IdString approximate_name;
         IdString axmiter_name;
 
-        // TODO Cleanup
+        // TODO Document method
+        // TODO Refactor method
         void run(Design *const design) {
             if (design->modules_.count(golden_name) == 0)
                 log_cmd_error("Can't find golden module %s!\n", golden_name.c_str());
@@ -274,6 +277,7 @@ namespace yosys_als {
             log("\n");
         }
 
+        // TODO Fix arguments
         void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE {
             AxMiterWorker worker;
 

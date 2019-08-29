@@ -17,6 +17,9 @@
  *
  */
 
+// TODO Add LICENSE
+// TODO Add README
+// TODO Move to passes/als directory
 /**
  * @file
  * @brief Approximate logic synthesis pass for Yosys ALS module
@@ -62,6 +65,7 @@ namespace yosys_als {
         /// A queue of the possible LUT-to-AIG mappings
         std::queue<dict<IdString, aig_model_t>> lut_to_aig_mapping_queue;
 
+        // TODO Document method
         // TODO We can do better than take a pointer for ax_cell
         // Alternatives:
         //  - A variant type
@@ -84,7 +88,8 @@ namespace yosys_als {
             lut_to_aig_mapping_queue.push(substitution_index);
         }
 
-        // TODO Cleanup
+        // TODO Document method
+        // TODO Refactor method
         void replace_approximated_greedy(Module *module) {
             log_header(module->design, "Finding best approximate LUT substitution.\n");
             log_push();
@@ -134,7 +139,6 @@ namespace yosys_als {
                 }
             }
 
-            // TODO Cleanup
             while (!lut_to_aig_mapping_queue.empty()) {
                 apply_mapping(working, lut_to_aig_mapping_queue.front(), debug);
                 clean_and_freduce(working);
@@ -253,6 +257,7 @@ namespace yosys_als {
 
             AlsWorker worker;
 
+            // TODO Add arguments for specifying output format
             size_t argidx;
             for (argidx = 1; argidx < args.size(); argidx++) {
                 if (args[argidx] == "-d") {
