@@ -19,7 +19,7 @@
 
 /**
  * @file
- * @brief Utility functions for Yosys ALS module
+ * @brief Generic utility functions for Yosys ALS module
  */
 
 #include "utils.h"

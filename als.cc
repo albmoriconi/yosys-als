@@ -23,6 +23,7 @@
  */
 
 #include "smtsynth.h"
+#include "yosys_utils.h"
 #include "kernel/yosys.h"
 
 #include <boost/dynamic_bitset.hpp>
@@ -30,9 +31,6 @@
 #include <queue>
 #include <string>
 #include <vector>
-
-using yosys_als::aig_model_t;
-using yosys_als::synthesize_lut;
 
 USING_YOSYS_NAMESPACE
 
@@ -63,38 +61,6 @@ namespace yosys_als {
         /// A queue of the possible LUT-to-AIG mappings
         std::queue<dict<IdString, aig_model_t>> lut_to_aig_mapping_queue;
 
-        /**
-         * @brief Wrapper for \c synthesize_lut
-         * @param lut The LUT specification
-         * @param ax_degree The approximation degree
-         * @return The synthesized AIG model
-         */
-        aig_model_t synthesize_lut(const Const &lut, const unsigned ax_degree) const {
-            if (debug)
-                log("LUT %s Ax: %d... ", lut.as_string().c_str(), ax_degree);
-
-            auto aig = yosys_als::synthesize_lut(boost::dynamic_bitset<>(lut.as_string()), ax_degree);
-
-            if (debug)
-                log("satisfied with %d gates.\n", aig.num_gates);
-
-            return aig;
-        }
-
-        /**
-         * @brief Applies LUT-to-AIG mapping to module
-         * @param module The module (modified in place)
-         * @param mapping The LUT-to-AIG mapping
-         */
-        void apply_mapping(Module *const module, const dict<IdString, aig_model_t> &mapping) const {
-            for (auto &sub : mapping) {
-                replace_lut(module, sub);
-
-                if (debug)
-                    log("Replaced %s in %s.\n", sub.first.c_str(), module->name.c_str());
-            }
-        }
-
         // TODO We can do better than take a pointer for ax_cell
         // Alternatives:
         //  - A variant type
@@ -103,12 +69,11 @@ namespace yosys_als {
             dict<IdString, aig_model_t> substitution_index;
 
             if (ax_cell != nullptr)
-                substitution_index[ax_cell->name] = approximated_luts[ax_cell->getParam("\\LUT").as_string()];
+                substitution_index[ax_cell->name] = approximated_luts[get_lut_param(ax_cell)];
 
             for (auto cell : module->cells()) {
-                if (cell != ax_cell && cell->hasParam("\\LUT")) {
-                    auto fun_spec = cell->getParam("\\LUT").as_string();
-                    auto lut_it = synthesized_luts.find(fun_spec);
+                if (cell != ax_cell && is_lut(cell)) {
+                    auto lut_it = synthesized_luts.find(get_lut_param(cell));
 
                     if (lut_it != synthesized_luts.end())
                         substitution_index[cell->name] = lut_it->second;
@@ -116,50 +81,6 @@ namespace yosys_als {
             }
 
             lut_to_aig_mapping_queue.push(substitution_index);
-        }
-
-        int count_and_cells(Module *module) const {
-            int and_cells = 0;
-
-            for (auto cell : module->cells()) {
-                if (cell->type == "$_AND_")
-                    and_cells++;
-            }
-
-            return and_cells;
-        }
-
-        Module *cloneInSameDesign(const Module *source, const IdString &copy_id) const {
-            Module *copy = source->clone();
-            copy->name = copy_id;
-            copy->design = source->design;
-            copy->attributes.erase("\\top");
-            source->design->modules_[copy_id] = copy;
-            return copy;
-        }
-
-        static void post_substitution(Module *module) {
-            Pass::call_on_module(module->design, module, "opt_clean");
-            Pass::call_on_module(module->design, module, "freduce");
-            Pass::call_on_module(module->design, module, "opt_clean");
-        }
-
-        // TODO This can be better
-        // We should create our SAT instance and check it
-        bool checkSat(Module *axmiter) const {
-            std::ifstream oldFile("axmiter.json");
-            if (oldFile.good())
-                std::remove("axmiter.json");
-
-            Pass::call(axmiter->design, "sat -prove trigger 0 -dump_json axmiter.json axmiter");
-
-            std::ifstream newFile("axmiter.json");
-            if (newFile.good()) {
-                std::remove("axmiter.json");
-                return false;
-            }
-
-            return true;
         }
 
         void replace_approximated_greedy(Module *top_mod) {
@@ -173,6 +94,7 @@ namespace yosys_als {
 
             if (first_step) {
                 cloneInSameDesign(top_mod, golden_id);
+                first_step = false;
                 if (debug)
                     log("Keeping a copy of golden design.\n");
             }
@@ -186,12 +108,12 @@ namespace yosys_als {
             log_header(top_mod->design, "Replacing exact synthesized LUTs.\n");
             log_push();
             push_substitution_index(working);
-            apply_mapping(working);
-            post_substitution(working);
+            apply_mapping(working, lut_to_aig_mapping_queue.front(), debug);
+            clean_and_freduce(working);
             lut_to_aig_mapping_queue.pop();
 
             // 3. Evaluate baseline and restore module
-            int and_cells_baseline = count_and_cells(working);
+            int and_cells_baseline = count_cells(working, "$_AND_");
             if (debug)
                 log("\nLogic cells for baseline: %d\n", and_cells_baseline);
 
@@ -220,10 +142,10 @@ namespace yosys_als {
             }
 
             while (!lut_to_aig_mapping_queue.empty()) {
-                apply_mapping(working);
-                post_substitution(working);
+                apply_mapping(working, lut_to_aig_mapping_queue.front(), debug);
+                clean_and_freduce(working);
 
-                int and_cells_candidate = count_and_cells(working);
+                int and_cells_candidate = count_cells(working, "$_AND_");
                 int reward = and_cells_baseline - and_cells_candidate;
                 if (debug) {
                     log("\nLogic cells for candidate: %d\n", and_cells_candidate);
@@ -236,7 +158,7 @@ namespace yosys_als {
                     Pass::call_on_module(working->design, working->design->modules_["\\axmiter"], "flatten");
                     if (checkSat(top_mod->design->modules_["\\axmiter"])) {
                         best_reward = reward;
-                        best_substitution = lut_to_aig_mapping_queue.top();
+                        best_substitution = lut_to_aig_mapping_queue.front();
                         done_something = true;
                         if (debug)
                             log("\nNew best reward\n");
@@ -260,60 +182,10 @@ namespace yosys_als {
             else
                 push_substitution_index(top_mod);
 
-            apply_mapping(top_mod);
-            post_substitution(top_mod);
+            apply_mapping(top_mod, lut_to_aig_mapping_queue.front(), debug);
+            clean_and_freduce(top_mod);
             lut_to_aig_mapping_queue.pop();
             log_pop();
-        }
-
-        void replace_lut(Module *const module, const pair<IdString, aig_model_t> &lut) const {
-            // Vector of variables in the model
-            std::array<SigSpec, 2> vars;
-            vars[1].append(State::S0);
-
-            // Get LUT ins and outs
-            SigSpec lut_out;
-            for (auto &conn : module->cell(lut.first)->connections()) {
-                if (module->cell(lut.first)->input(conn.first))
-                    vars[1].append(conn.second);
-                else if (module->cell(lut.first)->output(conn.first))
-                    lut_out = conn.second;
-            }
-
-            // Create AND gates
-            std::array<std::vector<Wire *>, 2> and_ab;
-            for (int i = 0; i < lut.second.num_gates; i++) {
-                Wire *and_a = module->addWire(NEW_ID);
-                Wire *and_b = module->addWire(NEW_ID);
-                Wire *and_y = module->addWire(NEW_ID);
-                module->addAndGate(NEW_ID, and_a, and_b, and_y);
-                and_ab[0].push_back(and_a);
-                and_ab[1].push_back(and_b);
-                vars[1].append(and_y);
-            }
-
-            // Negate variables
-            for (auto &sig : vars[1]) {
-                Wire *not_y = module->addWire(NEW_ID);
-                module->addNotGate(NEW_ID, sig, not_y);
-                vars[0].append(not_y);
-            }
-
-            // Create connections
-            assert(GetSize(and_ab[0]) == GetSize(and_ab[1]));
-            assert(GetSize(vars[0]) == GetSize(vars[1]));
-            for (int i = 0; i < GetSize(and_ab[0]); i++) {
-                for (int c = 0; c < GetSize(and_ab); c++) {
-                    int g_idx = lut.second.num_inputs + i;
-                    int p = lut.second.p[g_idx][c];
-                    int s = lut.second.s[g_idx][c];
-                    module->connect(and_ab[c][i], vars[p][s]);
-                }
-            }
-            module->connect(lut_out, vars[lut.second.out_p][lut.second.out]);
-
-            // Delete LUT
-            module->remove(module->cell(lut.first));
         }
 
         void run(Module *top_mod) {
@@ -330,10 +202,10 @@ namespace yosys_als {
                     std::string fun_spec = cell->getParam("\\LUT").as_string();
 
                     if (synthesized_luts.find(fun_spec) == synthesized_luts.end()) {
-                        synthesized_luts[fun_spec] = synthesize_lut(cell, 0);
+                        synthesized_luts[fun_spec] = synthesize_lut(cell->getParam("\\LUT"), 0, debug);
 
                         if (synthesized_luts[fun_spec].num_gates > 0) {
-                            approximated_luts[fun_spec] = synthesize_lut(cell, 1);
+                            approximated_luts[fun_spec] = synthesize_lut(cell->getParam("\\LUT"), 1, debug);
                             if (approximated_luts[fun_spec].num_gates < synthesized_luts[fun_spec].num_gates)
                                 log("\nKeeping approximate candidate\n");
                             else
