@@ -17,7 +17,6 @@
  *
  */
 
-// TODO Move to passes/als directory
 /**
  * @file
  * @brief Approximation miter pass for Yosys ALS module
@@ -180,12 +179,8 @@ namespace yosys_als {
                 }
             }
 
-            log("%s\n", log_signal(all_comparisons));
-
             for (int i = last_one_pos + 1; i < GetSize(threshold_s) - 1; i++)
                 all_comparisons.append(all_differences.bits()[i]);
-
-            log("%s\n", log_signal(all_comparisons));
 
             std::string threshold_s_n;
             to_string(boost::dynamic_bitset<>(all_differences.as_wire()->width, threshold - 1), threshold_s_n);
@@ -228,7 +223,6 @@ namespace yosys_als {
                 all_comparisons_n.append(diff_last_out);
             }
 
-            log("%s\n", log_signal(all_comparisons));
             Wire *w_pos = axmiter_module->addWire(NEW_ID);
             Cell *or_pos_cell = axmiter_module->addCell(NEW_ID, "$reduce_or");
             or_pos_cell->parameters["\\A_WIDTH"] = all_comparisons.size();
@@ -244,6 +238,7 @@ namespace yosys_als {
             or_neg_cell->parameters["\\A_SIGNED"] = 0;
             or_neg_cell->setPort("\\A", all_comparisons_n);
             or_neg_cell->setPort("\\Y", w_neg);
+            log("OK\n");
 
             Wire *not_sign = axmiter_module->addWire(NEW_ID);
             axmiter_module->addNotGate(NEW_ID, all_differences[GetSize(all_differences) - 1], not_sign);

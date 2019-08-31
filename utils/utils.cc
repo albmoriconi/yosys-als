@@ -17,7 +17,6 @@
  *
  */
 
-// TODO Move to utils
 /**
  * @file
  * @brief Generic utility functions for Yosys ALS module

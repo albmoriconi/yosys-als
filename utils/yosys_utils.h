@@ -66,10 +66,10 @@ namespace yosys_als {
     /**
      * @brief Counts the number of cells in the module
      * @param module A module
-     * @param type The type of cells to count
+     * @param type The type of cells to count, or an empty \c IdString to count all cells
      * @return The number of cells of the specified type, or all cells if unspecified
      */
-    size_t count_cells(const Yosys::Module *module, const Yosys::IdString &type = Yosys::IdString());
+    size_t count_cells(const Yosys::Module *module, const Yosys::IdString &type, bool debug);
 
     /**
      * @brief Copies a module and adds it to the same design
@@ -78,27 +78,31 @@ namespace yosys_als {
      * @param design The destination design (or \c nullptr if none)
      * @return A pointer to the created copy
      */
-    Yosys::Module *cloneInDesign(const Yosys::Module *source, const Yosys::IdString &copy_id, Yosys::Design *design);
+    Yosys::Module *cloneInDesign(const Yosys::Module *source, const Yosys::IdString &copy_id, Yosys::Design *design, bool debug);
 
     /**
      * @brief Cleans dangling cells and wires in the module and functionally reduces its nodes
      * @param module A module
      */
-    void clean_and_freduce(Yosys::Module *module);
+    inline void clean_and_freduce(Yosys::Module *module) {
+        Yosys::Pass::call_on_module(module->design, module, "clean");
+        Yosys::Pass::call_on_module(module->design, module, "freduce");
+        Yosys::Pass::call_on_module(module->design, module, "clean");
+    }
 
     /**
      * @brief Checks a SAT problem in the module
      * @param module A module
      * @return \c true if the problem is SAT, else \c false
      */
-    bool checkSat(const Yosys::Module *module);
+    bool checkSat(const Yosys::Module *module, bool debug);
 
     /**
      * @brief Replaces a LUT in the module
      * @param module A module
      * @param lut A substitution
      */
-    void replace_lut(Yosys::Module *module, const Yosys::pair<Yosys::IdString, aig_model_t> &lut);
+    void replace_lut(Yosys::Module *module, const Yosys::pair<Yosys::IdString, aig_model_t> &lut, bool debug);
 }
 
 #endif //YOSYS_ALS_YOSYS_UTILS_H

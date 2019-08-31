@@ -17,12 +17,10 @@
  *
  */
 
-// TODO Move to utils
 /**
  * @file
  * @brief RTLIL and Yosys utility functions for Yosys ALS module
  */
-// TODO Use debug parameters consistently
 
 #include "yosys_utils.h"
 
@@ -30,7 +28,7 @@ USING_YOSYS_NAMESPACE
 
 namespace yosys_als {
 
-    aig_model_t synthesize_lut(const Const &lut, const unsigned int ax_degree, bool debug) {
+    aig_model_t synthesize_lut(const Const &lut, unsigned int ax_degree, bool debug) {
         if (debug)
             log("LUT %s Ax: %d... ", lut.as_string().c_str(), ax_degree);
 
@@ -44,14 +42,14 @@ namespace yosys_als {
 
     void apply_mapping(Module *const module, const dict<IdString, aig_model_t> &mapping, bool debug) {
         for (auto &sub : mapping) {
-            replace_lut(module, sub);
+            replace_lut(module, sub, debug);
 
             if (debug)
                 log("Replaced %s in %s.\n", sub.first.c_str(), module->name.c_str());
         }
     }
 
-    size_t count_cells(const Module *const module, const IdString &type) {
+    size_t count_cells(const Module *const module, const IdString &type, bool debug) {
         size_t cell_count = 0;
 
         // Don't use count_if (avoid converting ObjRange to vector)
@@ -60,50 +58,38 @@ namespace yosys_als {
                 cell_count++;
         }
 
+        if (debug) {
+            log("Counted %zu cells ", cell_count);
+            if (!type.empty())
+                log("of type %s ", type.c_str());
+            log("in %s.\n", module->name.c_str());
+        }
+
         return cell_count;
     }
 
-    Module *cloneInDesign(const Module *const source, const IdString &copy_id, Design *const design) {
+    Module *cloneInDesign(const Module *const source, const IdString &copy_id, Design *const design, bool debug) {
         Module *copy = source->clone();
 
         copy->name = copy_id;
         copy->design = design;
         copy->attributes.erase("\\top");
 
-        if (copy->design)
+        if (debug)
+            log("Copied module %s to module %s.\n", source->name.c_str(), copy->name.c_str());
+
+        if (copy->design) {
             copy->design->modules_[copy_id] = copy;
+
+            if (debug)
+                log("Added module %s to design.\n", copy->name.c_str());
+        }
 
         return copy;
     }
 
-    void clean_and_freduce(Module *const module) {
-        Pass::call_on_module(module->design, module, "clean");
-        Pass::call_on_module(module->design, module, "freduce");
-        Pass::call_on_module(module->design, module, "clean");
-    }
-
-    // FIXME Rewrite this (code smells)
-    // 1. create our SAT instance
-    // 2. handle different problems
-    // 3. remove hard-coded strings
-    bool checkSat(const Module *const module) {
-        std::ifstream oldFile("axmiter.json");
-        if (oldFile.good())
-            std::remove("axmiter.json");
-
-        Pass::call(module->design, "sat -prove trigger 0 -dump_json axmiter.json axmiter");
-
-        std::ifstream newFile("axmiter.json");
-        if (newFile.good()) {
-            std::remove("axmiter.json");
-            return false;
-        }
-
-        return true;
-    }
-
     // TODO Rewrite this (decompose)
-    void replace_lut(Module *const module, const pair<IdString, aig_model_t> &lut) {
+    void replace_lut(Module *const module, const pair<IdString, aig_model_t> &lut, bool debug) {
         // Vector of variables in the model
         std::array<SigSpec, 2> vars;
         vars[1].append(State::S0);
