@@ -33,17 +33,17 @@ namespace yosys_als {
     /**
      * @brief Wrapper for \c synthesize_lut
      * @param lut The LUT specification
-     * @param ax_degree The approximation degree
+     * @param out_distance The approximation degree
      * @return The synthesized AIG model
      */
-    aig_model_t synthesize_lut(const Yosys::Const &lut, unsigned int ax_degree, bool debug);
+    mig_model_t synthesize_lut(const Yosys::Const &lut, unsigned int out_distance, bool debug);
 
     /**
      * @brief Applies LUT-to-AIG mapping to module
      * @param module The module (modified in place)
      * @param mapping The LUT-to-AIG mapping
      */
-    void apply_mapping(Yosys::Module *module, const Yosys::dict<Yosys::IdString, aig_model_t> &mapping, bool debug);
+    void apply_mapping(Yosys::Module *module, const Yosys::dict<Yosys::IdString, mig_model_t> &mapping, bool debug);
 
     /**
      * Checks if cell is a LUT
@@ -102,7 +102,7 @@ namespace yosys_als {
      * @param module A module
      * @param lut A substitution
      */
-    void replace_lut(Yosys::Module *module, const Yosys::pair<Yosys::IdString, aig_model_t> &lut, bool debug);
+    void replace_lut(Yosys::Module *module, const Yosys::pair<Yosys::IdString, mig_model_t> &lut, bool debug);
 }
 
 #endif //YOSYS_ALS_YOSYS_UTILS_H

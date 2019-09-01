@@ -34,38 +34,38 @@
 namespace yosys_als {
 
     /**
-     * @brief An AIG model
-     * The first \c num_inputs entries of \c s are the AIG primary inputs.
+     * @brief An MIG model
+     * The first \c num_inputs entries of \c s are the MIG primary inputs.
      * The first input is always the constant zero.
-     * The output of the last entry of \c s is the AIG primary output.
+     * The output of the last entry of \c s is the MIG primary output.
      */
-    struct aig_model_t {
+    struct mig_model_t {
         /// Number of inputs to the model
-        int num_inputs;
+        size_t num_inputs;
 
         /// Number of gates in the model
-        int num_gates;
+        size_t num_gates;
 
         /// Variables in the model
-        std::vector<std::array<int, 2>> s;
+        std::vector<std::array<size_t, 3>> s;
 
         /// Polarities of variables in the model
-        std::vector<std::array<int, 2>> p;
+        std::vector<std::array<bool, 3>> p;
 
         /// Output variable
-        int out;
+        size_t out;
 
         /// Polarity of the output
-        int out_p;
+        bool out_p;
     };
 
     /**
      * @brief SMT AIG exact synthesis for given function specification
      * @param fun_spec The function specification
-     * @param ax_degree The maximum bit-distance of the synthesized function
+     * @param out_distance The maximum hamming distance of the synthesized function
      * @return The synthesized AIG model
      */
-    aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, unsigned int ax_degree);
+    mig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, unsigned int out_distance);
 } // namespace yosys_als
 
 #endif //YOSYS_ALS_SMTSYNTH_H

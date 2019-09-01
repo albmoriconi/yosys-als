@@ -32,22 +32,6 @@
 
 namespace yosys_als {
 
-    std::string vformat(const char *const zcFormat, ...) {
-        va_list vaArgs;
-        va_start(vaArgs, zcFormat);
-
-        va_list vaArgsCopy;
-        va_copy(vaArgsCopy, vaArgs);
-        const int iLen = std::vsnprintf(nullptr, 0, zcFormat, vaArgsCopy);
-        va_end(vaArgsCopy);
-
-        std::vector<char> zc(iLen + 1);
-        std::vsnprintf(zc.data(), zc.size(), zcFormat, vaArgs);
-        va_end(vaArgs);
-
-        return std::string(zc.data(), iLen);
-    }
-
     unsigned ceil_log2(const unsigned int x) {
 #if defined(__GNUC__)
         return x > 1 ? (8 * sizeof(x)) - __builtin_clz(x - 1) : 0;

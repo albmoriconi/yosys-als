@@ -33,18 +33,6 @@
 namespace yosys_als {
 
     /*
-     * Text utility functions
-     */
-
-    /**
-     * \@rief Memory-safe string formatting for variable names
-     * @param zcFormat Null-terminated format string
-     * @param ... Variable argument list containing the data to print
-     * @return The formatted string
-     */
-    std::string vformat(const char *zcFormat, ...);
-
-    /*
      * Numeric utility functions
      */
 
