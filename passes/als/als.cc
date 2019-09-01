@@ -53,6 +53,77 @@ namespace yosys_als {
         /// Index of the approximately synthesized LUTs (kept between steps)
         dict<Const, std::vector<mig_model_t>> approximated_luts;
 
+        // TODO REMOVE THIS
+        void apply_mapping(Module *const module) {
+            dict<IdString, mig_model_t> mapping;
+
+            for (auto cell : module->cells()) {
+                if (is_lut(cell)) {
+                    auto lut_it = synthesized_luts.find(get_lut_param(cell));
+
+                    if (lut_it != synthesized_luts.end())
+                        mapping[cell->name] = lut_it->second;
+                }
+            }
+
+            for (auto &sub : mapping) {
+                replace_lut(module, sub);
+
+                if (debug)
+                    log("Replaced %s in %s.\n", sub.first.c_str(), module->name.c_str());
+            }
+        }
+
+        static void replace_lut(Module *const module, const pair<IdString, mig_model_t> &lut) {
+            // Vector of variables in the model
+            std::array<SigSpec, 2> vars;
+            vars[1].append(State::S0);
+
+            // Get LUT ins and outs
+            SigSpec lut_out;
+            for (auto &conn : module->cell(lut.first)->connections()) {
+                if (module->cell(lut.first)->input(conn.first))
+                    vars[1].append(conn.second);
+                else if (module->cell(lut.first)->output(conn.first))
+                    lut_out = conn.second;
+            }
+
+            // Create AND gates
+            std::array<std::vector<Wire *>, 2> and_ab;
+            for (int i = 0; i < lut.second.num_gates; i++) {
+                Wire *and_a = module->addWire(NEW_ID);
+                Wire *and_b = module->addWire(NEW_ID);
+                Wire *and_y = module->addWire(NEW_ID);
+                module->addAndGate(NEW_ID, and_a, and_b, and_y);
+                and_ab[0].push_back(and_a);
+                and_ab[1].push_back(and_b);
+                vars[1].append(and_y);
+            }
+
+            // Negate variables
+            for (auto &sig : vars[1]) {
+                Wire *not_y = module->addWire(NEW_ID);
+                module->addNotGate(NEW_ID, sig, not_y);
+                vars[0].append(not_y);
+            }
+
+            // Create connections
+            assert(GetSize(and_ab[0]) == GetSize(and_ab[1]));
+            assert(GetSize(vars[0]) == GetSize(vars[1]));
+            for (int i = 0; i < GetSize(and_ab[0]); i++) {
+                for (int c = 0; c < GetSize(and_ab); c++) {
+                    int g_idx = lut.second.num_inputs + i;
+                    int p = lut.second.p[g_idx][c];
+                    int s = lut.second.s[g_idx][c];
+                    module->connect(and_ab[c][i], vars[p][s]);
+                }
+            }
+            module->connect(lut_out, vars[lut.second.out_p][lut.second.out]);
+
+            // Delete LUT
+            module->remove(module->cell(lut.first));
+        }
+
         /**
          * Runs an ALS step on selected module
          * @param module A module
@@ -80,6 +151,7 @@ namespace yosys_als {
                     }
                 }
             }
+            apply_mapping(module);
 
             // 3. Create a graph structure
 
