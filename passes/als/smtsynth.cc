@@ -103,8 +103,6 @@ namespace yosys_als {
 
         ctx.out_p = boolector_var(ctx.btor, ctx.bool_sort, nullptr);
 
-        ctx.s = std::array<std::vector<BoolectorNode *>, 3>();
-
         return ctx;
     }
 
@@ -122,6 +120,30 @@ namespace yosys_als {
      BoolectorNode *smt_context_bool(const smt_context_t &ctx, const bool val) {
          return val ? ctx.bool_true : ctx.bool_false;
      }
+
+     /**
+      * @brief Gets a bitvector assignment as an unsigned integer
+      * @return The assignment as an unsigned integer
+      */
+     unsigned int smt_context_assignment_uint(const smt_context_t &ctx, BoolectorNode *const node) {
+         auto s = boolector_bv_assignment(ctx.btor, node);
+         auto val = std::stoul(s, nullptr, 2);
+         boolector_free_bv_assignment(ctx.btor, s);
+
+         return val;
+     }
+
+    /**
+     * @brief Gets a bitvector assignment as a Boolean
+     * @return The assignment as a Boolean
+     */
+    bool smt_context_assignment_bool(const smt_context_t &ctx, BoolectorNode *const node) {
+        auto s = boolector_bv_assignment(ctx.btor, node);
+        auto val = s[0] == '1';
+        boolector_free_bv_assignment(ctx.btor, s);
+
+        return val;
+    }
 
     /*
      * Utility functions and procedures
@@ -251,7 +273,8 @@ namespace yosys_als {
                 auto maj_prod_2 = boolector_and(ctx.btor, ctx.a[0][i_gates][t], ctx.a[2][i_gates][t]);
                 auto maj_prod_3 = boolector_and(ctx.btor, ctx.a[1][i_gates][t], ctx.a[2][i_gates][t]);
                 auto maj_sum_1 = boolector_or(ctx.btor, maj_prod_1, maj_prod_2);
-                boolector_assert(ctx.btor, boolector_or(ctx.btor, maj_sum_1, maj_prod_3));
+                auto maj = boolector_or(ctx.btor, maj_sum_1, maj_prod_3);
+                boolector_assert(ctx.btor, boolector_eq(ctx.btor, ctx.b[i][t], maj));
 
                 // Input connections
                 for (size_t j = 0; j < i; j++) {
@@ -270,19 +293,18 @@ namespace yosys_als {
             assume_function_semantics(ctx);
         }
 
-        // Get the solver model
-//        z3::model m = slv.get_model();
-//
-//        // Populate the AIG model
-//        for (size_t i = 0; i < s[0].size(); i++) {
-//            mig.s.emplace_back(std::array<int, 2> {m.eval(s[0][i]).get_numeral_int(),
-//                                                   m.eval(s[1][i]).get_numeral_int()});
-//            mig.p.emplace_back(std::array<int, 2> {m.eval(p[0][i]).is_true(),
-//                                                   m.eval(p[1][i]).is_true()});
-//        }
-//        mig.num_gates = static_cast<int>(mig.s.size()) - mig.num_inputs;
-//        mig.out = static_cast<int>(mig.s.size()) - 1;
-//        mig.out_p = m.eval(out_p).is_true();
+        // Populate the MIG model
+        for (size_t i = 0; i < ctx.s[0].size(); i++) {
+            mig.s.emplace_back(std::array<size_t, 3>{smt_context_assignment_uint(ctx, ctx.s[0][i]),
+                                                     smt_context_assignment_uint(ctx, ctx.s[1][i]),
+                                                     smt_context_assignment_uint(ctx, ctx.s[2][i])});
+            mig.p.emplace_back(std::array<bool, 3>{smt_context_assignment_bool(ctx, ctx.p[0][i]),
+                                                   smt_context_assignment_bool(ctx, ctx.p[1][i]),
+                                                   smt_context_assignment_bool(ctx, ctx.p[2][i])});
+        }
+        mig.num_gates = mig.s.size() - mig.num_inputs;
+        mig.out = mig.s.size() - 1;
+        mig.out_p = smt_context_assignment_bool(ctx, ctx.out_p);
 
         // Delete solver
         smt_context_delete(ctx);
