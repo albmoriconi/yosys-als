@@ -4,7 +4,7 @@ srcs = $(als_dir)/als.cc $(als_dir)/smtsynth.cc $(als_dir)/utils.cc $(als_dir)/y
 libs = -lboolector
 
 als.so: $(srcs)
-	$(yosys-config) --build $@ $^ $(libs)
+	$(yosys-config) --build $@ $^ $(libs) -O0
 
 clean:
 	rm -rf *.so *.dSYM *.d

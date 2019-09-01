@@ -69,14 +69,14 @@ namespace yosys_als {
 
                     if (synthesized_luts.find(fun_spec) == synthesized_luts.end()) {
                         synthesized_luts[fun_spec] = synthesize_lut(fun_spec, 0, debug);
-                        approximated_luts[fun_spec] = vector<mig_model_t>();
+                        //approximated_luts[fun_spec] = vector<mig_model_t>();
 
                         // TODO Add multiple approximate candidates
-                        if (synthesized_luts[fun_spec].num_gates > 0) {
-                            auto approximate_candidate = synthesize_lut(fun_spec, 1, debug);
-                            if (approximate_candidate.num_gates < synthesized_luts[fun_spec].num_gates)
-                                approximated_luts[fun_spec].push_back(std::move(approximate_candidate));
-                        }
+                        //if (synthesized_luts[fun_spec].num_gates > 0) {
+                        //    auto approximate_candidate = synthesize_lut(fun_spec, 1, debug);
+                        //    if (approximate_candidate.num_gates < synthesized_luts[fun_spec].num_gates)
+                        //        approximated_luts[fun_spec].push_back(std::move(approximate_candidate));
+                        //}
                     }
                 }
             }

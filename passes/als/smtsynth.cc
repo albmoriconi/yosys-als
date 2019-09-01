@@ -32,6 +32,7 @@
 #include <boost/dynamic_bitset.hpp>
 #include <boost/optional.hpp>
 
+#include <iostream>
 #include <array>
 #include <vector>
 
@@ -63,7 +64,7 @@ namespace yosys_als {
         /// Boolean false value
         BoolectorNode *bool_false{};
 
-        // Boolean true value
+        /// Boolean true value
         BoolectorNode *bool_true{};
 
         /// The truth table entries
@@ -91,6 +92,7 @@ namespace yosys_als {
 
         ctx.btor = boolector_new();
         boolector_set_opt(ctx.btor, BTOR_OPT_MODEL_GEN, 1);
+        boolector_set_opt(ctx.btor, BTOR_OPT_INCREMENTAL, 1);
         boolector_set_opt(ctx.btor, BTOR_OPT_AUTO_CLEANUP, 1);
 
         ctx.bitvec_sort = boolector_bitvec_sort(ctx.btor, 8);
@@ -98,6 +100,10 @@ namespace yosys_als {
 
         ctx.bool_false = boolector_int(ctx.btor, 0, ctx.bool_sort);
         ctx.bool_true = boolector_int(ctx.btor, 1, ctx.bool_sort);
+
+        ctx.out_p = boolector_var(ctx.btor, ctx.bool_sort, nullptr);
+
+        ctx.s = std::array<std::vector<BoolectorNode *>, 3>();
 
         return ctx;
     }
@@ -146,14 +152,14 @@ namespace yosys_als {
      * @param fun_spec The function specification
      * @param out_distance The maximum hamming distance of the synthesized function
      */
-    void enforce_function_semantics(const smt_context_t &ctx) {
+    void assume_function_semantics(const smt_context_t &ctx) {
         if (ctx.out_distance == 0) {
             // Exact semantics
             for (size_t t = 0; t < ctx.fun_spec.size(); t++) {
                 auto not_out_p = boolector_not(ctx.btor, ctx.out_p);
                 auto func_value = smt_context_bool(ctx, ctx.fun_spec[t]);
                 auto eq_rh = boolector_xor(ctx.btor, not_out_p, func_value);
-                boolector_assert(ctx.btor, boolector_eq(ctx.btor, ctx.b.back()[t], eq_rh));
+                boolector_assume(ctx.btor, boolector_eq(ctx.btor, ctx.b.back()[t], eq_rh));
             }
         } else {
             // Hamming distance semantics
@@ -180,8 +186,8 @@ namespace yosys_als {
         mig_model_t mig;
         mig.num_inputs = num_vars + 1;
         for (size_t i = 0; i < num_vars + 1; i++) {
-            mig.s.emplace_back(0, i, i);
-            mig.p.emplace_back(false, true, true);
+            mig.s.emplace_back(std::array<size_t, 3>{0u, i, i});
+            mig.p.emplace_back(std::array<bool, 3>{false, true, true});
         }
 
         // Single variable
@@ -199,6 +205,7 @@ namespace yosys_als {
 
         // Entries of the truth table
         for (size_t i = 0; i < num_vars + 1; i++) {
+            ctx.b.emplace_back();
             for (size_t t = 0; t < ctx.fun_spec.size(); t++) {
                 ctx.b[i].push_back(boolector_var(ctx.btor, ctx.bool_sort, nullptr));
                 auto truth_table_entry = smt_context_bool(ctx, truth_table_value(i, t));
@@ -207,17 +214,13 @@ namespace yosys_als {
         }
 
         // Function semantics
-        boolector_push(ctx.btor, 1);
-        enforce_function_semantics(ctx);
+        assume_function_semantics(ctx);
 
         // Solver loop
         while (boolector_sat(ctx.btor) == BOOLECTOR_UNSAT) {
             // Update index
             auto i = ctx.b.size();
             auto i_gates = i - (num_vars + 1);
-
-            // Drop old function semantics constraints
-            boolector_pop(ctx.btor, 1);
 
             // Add lists for t entries for gate i
             ctx.b.emplace_back();
@@ -258,14 +261,13 @@ namespace yosys_als {
                         auto not_p = boolector_not(ctx.btor, ctx.p[c][i_gates]);
                         auto impl_rh_eq_rh = boolector_xor(ctx.btor, ctx.b[j][t], not_p);
                         auto impl_rh = boolector_eq(ctx.btor, ctx.a[c][i_gates][t], impl_rh_eq_rh);
-                        boolector_implies(ctx.btor, impl_lh, impl_rh);
+                        boolector_assert(ctx.btor, boolector_implies(ctx.btor, impl_lh, impl_rh));
                     }
                 }
             }
 
             // Update function semantics
-            boolector_push(ctx.btor, 1);
-            enforce_function_semantics(ctx);
+            assume_function_semantics(ctx);
         }
 
         // Get the solver model
