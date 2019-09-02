@@ -53,7 +53,7 @@ namespace yosys_als {
         /// Index of the approximately synthesized LUTs (kept between steps)
         dict<Const, std::vector<mig_model_t>> approximated_luts;
 
-        // TODO REMOVE THIS
+        // TODO CONSIDER REMOVING THIS
         void apply_mapping(Module *const module) {
             dict<IdString, mig_model_t> mapping;
 
@@ -88,16 +88,22 @@ namespace yosys_als {
                     lut_out = conn.second;
             }
 
-            // Create AND gates
-            std::array<std::vector<Wire *>, 2> and_ab;
-            for (int i = 0; i < lut.second.num_gates; i++) {
-                Wire *and_a = module->addWire(NEW_ID);
-                Wire *and_b = module->addWire(NEW_ID);
-                Wire *and_y = module->addWire(NEW_ID);
-                module->addAndGate(NEW_ID, and_a, and_b, and_y);
-                and_ab[0].push_back(and_a);
-                and_ab[1].push_back(and_b);
-                vars[1].append(and_y);
+            // Create Maj gates
+            std::array<std::vector<Wire *>, 3> maj_abc;
+            for (size_t i = 0; i < lut.second.num_gates; i++) {
+                Wire *maj_a = module->addWire(NEW_ID);
+                Wire *maj_b = module->addWire(NEW_ID);
+                Wire *maj_c = module->addWire(NEW_ID);
+                Wire *maj_y = module->addWire(NEW_ID);
+                Cell *c = module->addCell(NEW_ID, "\\MAJ");
+                c->setPort("\\A", maj_a);
+                c->setPort("\\B", maj_b);
+                c->setPort("\\C", maj_c);
+                c->setPort("\\Y", maj_y);
+                maj_abc[0].push_back(maj_a);
+                maj_abc[1].push_back(maj_b);
+                maj_abc[2].push_back(maj_c);
+                vars[1].append(maj_y);
             }
 
             // Negate variables
@@ -108,14 +114,14 @@ namespace yosys_als {
             }
 
             // Create connections
-            assert(GetSize(and_ab[0]) == GetSize(and_ab[1]));
+            assert(GetSize(maj_abc[0]) == GetSize(maj_abc[1]) && GetSize(maj_abc[1]) == GetSize(maj_abc[2]));
             assert(GetSize(vars[0]) == GetSize(vars[1]));
-            for (int i = 0; i < GetSize(and_ab[0]); i++) {
-                for (int c = 0; c < GetSize(and_ab); c++) {
-                    int g_idx = lut.second.num_inputs + i;
-                    int p = lut.second.p[g_idx][c];
-                    int s = lut.second.s[g_idx][c];
-                    module->connect(and_ab[c][i], vars[p][s]);
+            for (size_t i = 0; i < maj_abc[0].size(); i++) {
+                for (size_t c = 0; c < maj_abc.size(); c++) {
+                    size_t g_idx = lut.second.num_inputs + i;
+                    size_t p = lut.second.p[g_idx][c];
+                    size_t s = lut.second.s[g_idx][c];
+                    module->connect(maj_abc[c][i], vars[p][s]);
                 }
             }
             module->connect(lut_out, vars[lut.second.out_p][lut.second.out]);
@@ -123,12 +129,23 @@ namespace yosys_als {
             // Delete LUT
             module->remove(module->cell(lut.first));
         }
+        // END OF REMOVAL
 
         /**
          * Runs an ALS step on selected module
          * @param module A module
          */
         void run(Module *module) {
+            // 0. Read Maj cell
+            std::string maj_verilog = "module MAJ(A, B, C, Y);\n"
+                                      "input A, B, C;\n"
+                                      "output Y;\n"
+                                      "assign Y = (A & B) | (A & C) | (B & C);\n"
+                                      "endmodule\n";
+            std::istringstream f(maj_verilog);
+            auto *map = new RTLIL::Design;
+            Frontend::frontend_call(map, &f, "<maj.v>", "verilog -nooverwrite -noblackbox");
+
             // 1. 4-LUT synthesis
             ScriptPass::call(module->design, "synth -lut 4");
 
@@ -152,6 +169,7 @@ namespace yosys_als {
                 }
             }
             apply_mapping(module);
+            delete map;
 
             // 3. Create a graph structure
 
