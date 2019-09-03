@@ -39,13 +39,6 @@ namespace yosys_als {
     mig_model_t synthesize_lut(const Yosys::Const &lut, unsigned int out_distance, bool debug);
 
     /**
-     * @brief Applies LUT-to-AIG mapping to module
-     * @param module The module (modified in place)
-     * @param mapping The LUT-to-AIG mapping
-     */
-    void apply_mapping(Yosys::Module *module, const Yosys::dict<Yosys::IdString, mig_model_t> &mapping, bool debug);
-
-    /**
      * Checks if cell is a LUT
      * @param cell A cell
      * @return \c true if the cell is a LUT, otherwise \c false
@@ -62,47 +55,6 @@ namespace yosys_als {
     static constexpr const Yosys::Const &get_lut_param(const Yosys::Cell *const cell) {
         return cell->getParam("\\LUT");
     }
-
-    /**
-     * @brief Counts the number of cells in the module
-     * @param module A module
-     * @param type The type of cells to count, or an empty \c IdString to count all cells
-     * @return The number of cells of the specified type, or all cells if unspecified
-     */
-    size_t count_cells(const Yosys::Module *module, const Yosys::IdString &type, bool debug);
-
-    /**
-     * @brief Copies a module and adds it to the same design
-     * @param source The module to copy
-     * @param copy_id The name of the copy
-     * @param design The destination design (or \c nullptr if none)
-     * @return A pointer to the created copy
-     */
-    Yosys::Module *cloneInDesign(const Yosys::Module *source, const Yosys::IdString &copy_id, Yosys::Design *design, bool debug);
-
-    /**
-     * @brief Cleans dangling cells and wires in the module and functionally reduces its nodes
-     * @param module A module
-     */
-    inline void clean_and_freduce(Yosys::Module *module) {
-        Yosys::Pass::call_on_module(module->design, module, "clean");
-        Yosys::Pass::call_on_module(module->design, module, "freduce");
-        Yosys::Pass::call_on_module(module->design, module, "clean");
-    }
-
-    /**
-     * @brief Checks a SAT problem in the module
-     * @param module A module
-     * @return \c true if the problem is SAT, else \c false
-     */
-    bool checkSat(const Yosys::Module *module, bool debug);
-
-    /**
-     * @brief Replaces a LUT in the module
-     * @param module A module
-     * @param lut A substitution
-     */
-    void replace_lut(Yosys::Module *module, const Yosys::pair<Yosys::IdString, mig_model_t> &lut, bool debug);
 }
 
 #endif //YOSYS_ALS_YOSYS_UTILS_H

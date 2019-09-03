@@ -25,11 +25,10 @@
  */
 
 #include "smtsynth.h"
-#include "utils.h"
+#include "graph_utils.h"
 #include "yosys_utils.h"
 #include "kernel/yosys.h"
 
-#include <queue>
 #include <string>
 #include <vector>
 
@@ -47,17 +46,14 @@ namespace yosys_als {
         /// If \c true, log debug information
         bool debug = false;
 
-        /// Index of the synthesized LUTs (kept between steps)
+        /// Index of the synthesized LUTs
         dict<Const, mig_model_t> synthesized_luts;
-
-        /// Index of the approximately synthesized LUTs (kept between steps)
-        dict<Const, std::vector<mig_model_t>> approximated_luts;
 
         /**
          * Runs an ALS step on selected module
          * @param module A module
          */
-        void run(Module *module) {
+        void run(Module *const module) {
             // 1. 4-LUT synthesis
             ScriptPass::call(module->design, "synth -lut 4");
 
@@ -82,6 +78,7 @@ namespace yosys_als {
             }
 
             // 3. Create a graph structure
+            Graph g = graph_from_module(module);
 
             // ...
         }
