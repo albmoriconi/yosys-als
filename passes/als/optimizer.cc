@@ -42,10 +42,18 @@ namespace yosys_als {
     dict<IdString, double> output_reliability(const Graph &g, const std::vector<Vertex> &topological_order,
             const dict<Const, std::vector<mig_model_t>> &synthesized_luts, const std::vector<size_t> &mapping) {
         dict<IdString, double> rel;
-        Eigen::Matrix2d f;
+        dict<IdString, Eigen::Matrix2d> z_matrix_for;
 
-        for (auto const &v : boost::adaptors::reverse(topological_order) | boost::adaptors::indexed(0))
-            std::cout << "Node: " << v.index() << " IdString: " << g[v.value()].c_str() << "\n";
+        for (auto const &v : boost::adaptors::reverse(topological_order) | boost::adaptors::indexed(0)) {
+            std::cout << "Node: " << v.index() << " IdString: " << g[v.value()].name.c_str() << "\n";
+
+            if (boost::in_degree(v.value(), g) == 0) {
+                std::cout << "Input\n";
+            }
+
+            if (boost::out_degree(v.value(), g) == 0)
+                std::cout << "Output\n";
+        }
 
         return rel;
     }

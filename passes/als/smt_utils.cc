@@ -26,9 +26,7 @@
 
 #include <boost/dynamic_bitset.hpp>
 
-#include <cstdarg>
 #include <string>
-#include <vector>
 
 namespace yosys_als {
 

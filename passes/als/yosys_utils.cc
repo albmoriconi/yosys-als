@@ -24,6 +24,8 @@
 
 #include "yosys_utils.h"
 
+#include "smtsynth.h"
+
 USING_YOSYS_NAMESPACE
 
 namespace yosys_als {

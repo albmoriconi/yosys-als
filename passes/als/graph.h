@@ -31,11 +31,26 @@
 
 namespace yosys_als {
 
+    /// The vertex type for topological analysis of the circuit
+    struct vertex_t {
+        enum {CONSTANT_ZERO, CONSTANT_ONE, PRIMARY_INPUT, CELL} type;
+        Yosys::IdString name;
+    };
+
+    /// The edge type for topological analysis of the circuit
+    struct edge_t {
+        size_t connection;
+        size_t signal;
+    };
+
     /// The graph type for topological analysis of the circuit
-    typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, Yosys::IdString> Graph;
+    typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, vertex_t, edge_t> Graph;
 
     /// The vertex descriptor type for topological analysis of the circuit
     typedef boost::graph_traits<Graph>::vertex_descriptor Vertex;
+
+    /// The edge descriptor type for topological analysis of the circuit
+    typedef boost::graph_traits<Graph>::edge_descriptor Edge;
 
     /**
      * @brief Create a graph with the topological structure of the circuit

@@ -34,20 +34,17 @@ namespace yosys_als {
 
     Graph graph_from_module(Module *const module) {
         Graph g;
-        dict<IdString, Vertex> vertex_map;
-
-        // Iterate on cells, add them as vertices
-        for (auto cell : module->cells()) {
-            auto v = boost::add_vertex(g);
-            g[v] = cell->name;
-            vertex_map[cell->name] = v;
-        }
-
-        // Build a driver index
         SigMap sigmap(module);
+        dict<IdString, Vertex> vertex_map;
         dict<SigBit, Cell*> driver_of;
 
+        // Iterate on cells, add them as vertices, build driver index
         for (auto cell : module->cells()) {
+            auto v = boost::add_vertex(g);
+            g[v].name = cell->name;
+            g[v].type = vertex_t::CELL;
+            vertex_map[cell->name] = v;
+
             for (auto &conn : cell->connections())
                 if (cell->output(conn.first))
                     for (auto &sig : sigmap(conn.second))
@@ -55,13 +52,67 @@ namespace yosys_als {
         }
 
         // Add driver -> driven cell edges
+        boost::optional<Vertex> zero_v = boost::none;
+        boost::optional<Vertex> one_v = boost::none;
         for (auto cell : module->cells()) {
-            for (auto &conn : cell->connections())
-                if (cell->input(conn.first))
-                    for (auto &sig : sigmap(conn.second))
-                        // Skip if signal has no driver (i.e. PI)
-                        if (driver_of.find(sig) != driver_of.end())
-                            boost::add_edge(vertex_map[driver_of[sig]->name], vertex_map[cell->name], g);
+            size_t conn_idx = 0;
+
+            for (auto &conn : cell->connections()) {
+                size_t sig_idx = 0;
+
+                if (cell->input(conn.first)) {
+                    for (auto &sig : sigmap(conn.second)) {
+                        // Check if signal has driver (i.e. not a PI)
+                        auto driver = driver_of.find(sig);
+                        Edge e;
+                        bool b;
+
+                        if (driver != driver_of.end()) {
+                            // In this case, add an edge and mark it with the progressive input number
+                            boost::tie(e, b) = boost::add_edge(vertex_map[driver_of[sig]->name], vertex_map[cell->name], g);
+                        } else {
+                            // Otherwise, driver is a PI
+                            if (sig.wire != nullptr) {
+                                // If it's a wire...
+                                auto input = vertex_map.find(sig.wire->name);
+
+                                if (input == vertex_map.end()) {
+                                    auto v = boost::add_vertex(g);
+                                    g[v].name = sig.wire->name;
+                                    g[v].type = vertex_t::PRIMARY_INPUT;
+                                    vertex_map[sig.wire->name] = v;
+                                }
+
+                                boost::tie(e, b) = boost::add_edge(vertex_map[sig.wire->name], vertex_map[cell->name], g);
+                            } else {
+                                // If it's a constant...
+                                if (sig.data == State::S1) {
+                                    if (!one_v) {
+                                        auto v = boost::add_vertex(g);
+                                        g[v].type = vertex_t::CONSTANT_ONE;
+                                        one_v = v;
+                                    }
+
+                                    boost::tie(e, b) = boost::add_edge(*one_v, vertex_map[cell->name], g);
+                                } else {
+                                    if (!zero_v) {
+                                        auto v = boost::add_vertex(g);
+                                        g[v].type = vertex_t::CONSTANT_ZERO;
+                                        zero_v = v;
+                                    }
+
+                                    boost::tie(e, b) = boost::add_edge(*zero_v, vertex_map[cell->name], g);
+                                }
+                            }
+                        }
+
+                        g[e].connection = conn_idx;
+                        g[e].signal = sig_idx++;
+                    }
+                }
+
+                conn_idx++;
+            }
         }
 
         // TODO Check if BGL implements move semantics - return a pointer otherwise
