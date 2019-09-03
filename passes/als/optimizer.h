@@ -19,30 +19,30 @@
 
 /**
  * @file
- * @brief Graph utility functions for Yosys ALS module
+ * @brief Optimization utility functions for Yosys ALS module
  */
 
-#ifndef YOSYS_ALS_GRAPH_UTILS_H
-#define YOSYS_ALS_GRAPH_UTILS_H
+#ifndef YOSYS_ALS_OPTIMIZER_H
+#define YOSYS_ALS_OPTIMIZER_H
 
+#include "graph.h"
+#include "smtsynth.h"
 #include "kernel/yosys.h"
-
-#include <boost/graph/adjacency_list.hpp>
 
 namespace yosys_als {
 
-    /// The graph type for topological analysis of the circuit
-    typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, Yosys::IdString> Graph;
-
-    /// The vertex descriptor type for topological analysis of the circuit
-    typedef boost::graph_traits<Graph>::vertex_descriptor Vertex;
-
     /**
-     * @brief Create a graph with the topological structure of the circuit
-     * @param module A module
-     * @return A graph with the topological structure of the circuit
+     * @brief Evaluates the output reliability for a given LUT mapping
+     * @param g A graph with the topological structure of the circuit
+     * @param topological_order A topological ordering for the graph \c g
+     * @param synthesized_luts The index of the synthesized LUTs
+     * @param mapping A vector of the desired LUT variants, ordered as \c topological_order
+     * @return The reliability of the output nodes of the graph
      */
-    Graph graph_from_module(Yosys::Module *module);
+    Yosys::dict<Yosys::IdString, double> output_reliability(const Graph &g,
+            const std::vector<Vertex> &topological_order,
+            const Yosys::dict<Yosys::Const, std::vector<mig_model_t>> &synthesized_luts,
+            const std::vector<size_t> &mapping);
 }
 
-#endif //YOSYS_ALS_GRAPH_UTILS_H
+#endif //YOSYS_ALS_OPTIMIZER_H

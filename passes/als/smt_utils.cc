@@ -22,7 +22,7 @@
  * @brief Generic utility functions for Yosys ALS module
  */
 
-#include "utils.h"
+#include "smt_utils.h"
 
 #include <boost/dynamic_bitset.hpp>
 

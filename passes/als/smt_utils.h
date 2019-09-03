@@ -22,8 +22,8 @@
  * @brief Generic utility functions for Yosys ALS module
  */
 
-#ifndef YOSYS_ALS_UTILS_H
-#define YOSYS_ALS_UTILS_H
+#ifndef YOSYS_ALS_SMT_UTILS_H
+#define YOSYS_ALS_SMT_UTILS_H
 
 #include <boost/dynamic_bitset.hpp>
 
@@ -87,4 +87,4 @@ namespace yosys_als {
     size_t hamming_distance(const boost::dynamic_bitset<> &bs1, const boost::dynamic_bitset<> &bs2);
 } // namespace yosys_als
 
-#endif //YOSYS_ALS_UTILS_H
+#endif //YOSYS_ALS_SMT_UTILS_H

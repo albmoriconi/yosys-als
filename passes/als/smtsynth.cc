@@ -26,7 +26,7 @@
  */
 
 #include "smtsynth.h"
-#include "utils.h"
+#include "smt_utils.h"
 
 #include <boolector/boolector.h>
 #include <boost/dynamic_bitset.hpp>

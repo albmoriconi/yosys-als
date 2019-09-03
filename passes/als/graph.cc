@@ -22,7 +22,7 @@
  * @brief Graph utility functions for Yosys ALS module
  */
 
-#include "graph_utils.h"
+#include "graph.h"
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 
