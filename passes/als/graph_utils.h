@@ -31,21 +31,17 @@
 
 namespace yosys_als {
 
-    /// The vertex properties for topological analysis of the circuit
-    struct vertex_p {
-        /// The \c IdString of the cell
-        Yosys::IdString name;
-    };
-
     /// The graph type for topological analysis of the circuit
-    typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, vertex_p> Graph;
+    typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, Yosys::IdString> Graph;
 
     /// The vertex descriptor type for topological analysis of the circuit
-    typedef boost::graph_traits<Graph>::vertex_descriptor vertex_t;
+    typedef boost::graph_traits<Graph>::vertex_descriptor Vertex;
 
-    /// The edge descriptor type for topological analysis of the circuit
-    typedef boost::graph_traits<Graph>::edge_descriptor edge_t;
-
+    /**
+     * @brief Create a graph with the topological structure of the circuit
+     * @param module A module
+     * @return A graph with the topological structure of the circuit
+     */
     Graph graph_from_module(Yosys::Module *module);
 }
 

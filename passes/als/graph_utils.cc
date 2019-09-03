@@ -26,18 +26,20 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 
+#include <boost/graph/adjacency_list.hpp>
+
 USING_YOSYS_NAMESPACE
 
 namespace yosys_als {
 
     Graph graph_from_module(Module *const module) {
         Graph g;
-        dict<IdString, vertex_t> vertex_map;
+        dict<IdString, Vertex> vertex_map;
 
         // Iterate on cells, add them as vertices
         for (auto cell : module->cells()) {
             auto v = boost::add_vertex(g);
-            g[v].name = cell->name;
+            g[v] = cell->name;
             vertex_map[cell->name] = v;
         }
 

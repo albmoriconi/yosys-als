@@ -47,7 +47,7 @@ namespace yosys_als {
         bool debug = false;
 
         /// Index of the synthesized LUTs
-        dict<Const, mig_model_t> synthesized_luts;
+        dict<Const, std::vector<mig_model_t>> synthesized_luts;
 
         /**
          * Runs an ALS step on selected module
@@ -64,8 +64,7 @@ namespace yosys_als {
                     const auto &fun_spec = get_lut_param(cell);
 
                     if (synthesized_luts.find(fun_spec) == synthesized_luts.end()) {
-                        synthesized_luts[fun_spec] = synthesize_lut(fun_spec, 0, debug);
-                        //approximated_luts[fun_spec] = vector<mig_model_t>();
+                        synthesized_luts[fun_spec] = std::vector<mig_model_t>{synthesize_lut(fun_spec, 0, debug)};
 
                         // TODO Add multiple approximate candidates
                         //if (synthesized_luts[fun_spec].num_gates > 0) {
