@@ -35,6 +35,14 @@ namespace yosys_als {
     struct vertex_t {
         enum {CONSTANT_ZERO, CONSTANT_ONE, PRIMARY_INPUT, CELL} type;
         Yosys::IdString name;
+
+        unsigned int hash() const {
+            return name.hash();
+        }
+
+        bool operator==(const vertex_t &rhs) const {
+            return name == rhs.name;
+        }
     };
 
     /// The edge type for topological analysis of the circuit
