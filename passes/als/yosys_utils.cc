@@ -32,12 +32,15 @@ namespace yosys_als {
 
     mig_model_t synthesize_lut(const Const &lut, unsigned int out_distance, bool debug) {
         if (debug)
-            log("LUT %s Dist: %d... ", lut.as_string().c_str(), out_distance);
+            log("%s @delta%d... ", lut.as_string().c_str(), out_distance);
 
         auto aig = yosys_als::synthesize_lut(boost::dynamic_bitset<>(lut.as_string()), out_distance);
 
-        if (debug)
-            log("satisfied with %zu gates.\n", aig.num_gates);
+        if (debug) {
+            string fun_spec;
+            boost::to_string(aig.fun_spec, fun_spec);
+            log("satisfied with %zu gates, implements %s.\n", aig.num_gates, fun_spec.c_str());
+        }
 
         return aig;
     }

@@ -233,6 +233,7 @@ namespace yosys_als {
             mig.num_gates = 0;
             mig.out = *sel_var / 2;
             mig.out_p = *sel_var % 2 == 0;
+            mig.fun_spec = truth_table_column(mig.out, num_vars, mig.out_p);
             return mig;
         }
 
@@ -310,9 +311,11 @@ namespace yosys_als {
         }
 
         // Populate the MIG model
-        if (out_distance == 0)
-            mig.fun_spec = fun_spec;
-        // TODO Else check the model!
+        boost::dynamic_bitset<> inc_fun_spec;
+        for (size_t i = 0; i < ctx.b.back().size(); i++)
+            inc_fun_spec.push_back(smt_context_assignment_bool(
+                    ctx, ctx.b.back()[i]) ^ !smt_context_assignment_bool(ctx, ctx.out_p));
+        mig.fun_spec = inc_fun_spec;
 
         for (size_t i = 0; i < ctx.s[0].size(); i++) {
             mig.s.emplace_back(std::array<size_t, 3>{smt_context_assignment_uint(ctx, ctx.s[0][i]),
