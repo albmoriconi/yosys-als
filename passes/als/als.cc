@@ -34,6 +34,7 @@
 #include "boost/graph/topological_sort.hpp"
 
 #include <string>
+#include <thread>
 #include <vector>
 
 USING_YOSYS_NAMESPACE
@@ -63,22 +64,26 @@ namespace yosys_als {
 
             // 2. SMT exact synthesis
             log_header(module->design, "Running SMT exact synthesis for LUTs.\n");
+            std::vector<std::thread> threads;
             for (auto cell : module->cells()) {
                 if (is_lut(cell)) {
                     const auto &fun_spec = get_lut_param(cell);
 
                     if (synthesized_luts.find(fun_spec) == synthesized_luts.end()) {
-                        synthesized_luts[fun_spec] = std::vector<mig_model_t>{synthesize_lut(fun_spec, 0, debug)};
+                        threads.emplace_back(std::thread([&] {
+                            synthesized_luts[fun_spec] = std::vector<mig_model_t>{synthesize_lut(fun_spec, 0, debug)};
 
-                        // TODO Add multiple approximate candidates
-                        //if (synthesized_luts[fun_spec].num_gates > 0) {
-                        //    auto approximate_candidate = synthesize_lut(fun_spec, 1, debug);
-                        //    if (approximate_candidate.num_gates < synthesized_luts[fun_spec].num_gates)
-                        //        approximated_luts[fun_spec].push_back(std::move(approximate_candidate));
-                        //}
+                            size_t dist = 1;
+                            while (synthesized_luts[fun_spec].back().num_gates > 0) {
+                                auto approximate_candidate = synthesize_lut(fun_spec, dist++, debug);
+                                synthesized_luts[fun_spec].push_back(std::move(approximate_candidate));
+                            }
+                        }));
                     }
                 }
             }
+            for (auto &t : threads)
+                t.join();
 
             // 3. Create a graph structure
             Graph g = graph_from_module(module);
