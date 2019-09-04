@@ -96,21 +96,10 @@ namespace yosys_als {
         Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> itm(exact_lut.fun_spec.size(), 2);
         Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> ptm(mapped_lut.fun_spec.size(), 2);
         for (size_t i = 0; i < exact_lut.fun_spec.size(); i++) {
-            if (exact_lut.fun_spec[i]) {
-                itm(i, 0) = false;
-                itm(i, 1) = true;
-            } else {
-                itm(i, 0) = true;
-                itm(i, 1) = false;
-            }
-
-            if (mapped_lut.fun_spec[i]) {
-                ptm(i, 0) = false;
-                ptm(i, 1) = true;
-            } else {
-                ptm(i, 0) = true;
-                ptm(i, 1) = false;
-            }
+            itm(i, 0) = !exact_lut.fun_spec[i];
+            itm(i, 1) = exact_lut.fun_spec[i];
+            ptm(i, 0) = !mapped_lut.fun_spec[i];
+            ptm(i, 1) = mapped_lut.fun_spec[i];
         }
 
         // Evaluate output probability according to PTM

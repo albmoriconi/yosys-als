@@ -39,6 +39,12 @@
 namespace yosys_als {
 
     /*
+     * Constants
+     */
+
+    constexpr size_t bitvec_sort_width = 8;
+
+    /*
      * Utility data structures
      */
 
@@ -95,7 +101,7 @@ namespace yosys_als {
         boolector_set_opt(ctx.btor, BTOR_OPT_INCREMENTAL, 1);
         boolector_set_opt(ctx.btor, BTOR_OPT_AUTO_CLEANUP, 1);
 
-        ctx.bitvec_sort = boolector_bitvec_sort(ctx.btor, 8);
+        ctx.bitvec_sort = boolector_bitvec_sort(ctx.btor, bitvec_sort_width);
         ctx.bool_sort = boolector_bitvec_sort(ctx.btor, 1);
 
         ctx.bool_false = boolector_int(ctx.btor, 0, ctx.bool_sort);
@@ -185,12 +191,22 @@ namespace yosys_als {
             }
         } else {
             // Hamming distance semantics
-            //z3::expr_vector ax(slv.ctx());
-            //for (size_t t = 0; t < fun_spec.size(); t++) {
-            //    ax.push_back(slv.ctx().bool_const(vformat("ax_%d", t).c_str()));
-            //    slv.add(ax[t] == (b.back()[t] != (!out_p != slv.ctx().bool_val(fun_spec[t]))));
-            //    slv.add(z3::atmost(ax, out_distance));
-            //}
+            std::vector<BoolectorNode *> all_the_xors;
+            for (size_t t = 0; t < ctx.fun_spec.size(); t++) {
+                auto not_out_p = boolector_not(ctx.btor, ctx.out_p);
+                auto func_value = smt_context_bool(ctx, ctx.fun_spec[t]);
+                auto xor_rh = boolector_xor(ctx.btor, not_out_p, func_value);
+                auto bit_xor = boolector_xor(ctx.btor, ctx.b.back()[t], xor_rh);
+                all_the_xors.push_back(boolector_uext(ctx.btor, bit_xor, bitvec_sort_width-1));
+            }
+            std::vector<BoolectorNode *> all_the_sums;
+            if (!all_the_xors.empty())
+                all_the_sums.push_back(all_the_xors[0]);
+            for (size_t i = 1; i < all_the_xors.size(); i++) {
+                all_the_sums.push_back(boolector_add(ctx.btor, all_the_sums.back(), all_the_xors[i]));
+            }
+            BoolectorNode *ulte_rh = boolector_int(ctx.btor, ctx.out_distance, ctx.bitvec_sort);
+            boolector_assume(ctx.btor, boolector_ulte(ctx.btor, all_the_sums.back(), ulte_rh));
         }
     }
 
