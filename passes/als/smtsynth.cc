@@ -294,6 +294,10 @@ namespace yosys_als {
         }
 
         // Populate the MIG model
+        if (out_distance == 0)
+            mig.fun_spec = fun_spec;
+        // TODO Else check the model!
+
         for (size_t i = 0; i < ctx.s[0].size(); i++) {
             mig.s.emplace_back(std::array<size_t, 3>{smt_context_assignment_uint(ctx, ctx.s[0][i]),
                                                      smt_context_assignment_uint(ctx, ctx.s[1][i]),

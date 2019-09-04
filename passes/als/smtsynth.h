@@ -40,6 +40,9 @@ namespace yosys_als {
      * The output of the last entry of \c s is the MIG primary output.
      */
     struct mig_model_t {
+        /// Synthesized function specification
+        boost::dynamic_bitset<> fun_spec;
+
         /// Number of inputs to the model
         size_t num_inputs;
 

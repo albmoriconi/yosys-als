@@ -29,8 +29,10 @@
 
 #include "graph.h"
 #include "smtsynth.h"
+#include "yosys_utils.h"
 #include "kernel/yosys.h"
 
+#include <boost/dynamic_bitset.hpp>
 #include <boost/range/adaptor/indexed.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 #include <Eigen/Dense>
@@ -73,9 +75,8 @@ namespace yosys_als {
         return z_matrix;
     }
 
-    Eigen::Matrix2d z_in_degree_pos(const Graph &g, const Vertex &v, dict<vertex_t, Eigen::Matrix2d> &z_matrix_for) {
-        Eigen::Matrix2d z_matrix;
-
+    Eigen::Matrix2d z_in_degree_pos(const Graph &g, const Vertex &v, dict<vertex_t, Eigen::Matrix2d> &z_matrix_for,
+            const mig_model_t &exact_lut, const mig_model_t &mapped_lut) {
         // Get z matrices of the input drivers
         auto in_edges = boost::in_edges(v, g);
         std::vector<Eigen::Matrix2d> z_inputs(in_edges.second - in_edges.first);
@@ -83,18 +84,49 @@ namespace yosys_als {
             z_inputs[g[e].signal] = z_matrix_for[g[boost::source(e, g)]];
         });
 
-        // Evaluate I matrix for the cell
+        // Evaluate I matrix for the cell (std::reduce is not C++11)
         Eigen::MatrixXd big_i = z_inputs[0].replicate(1, 1);
         std::for_each(z_inputs.begin() + 1, z_inputs.end(), [&](const Eigen::Matrix2d &i) {
            big_i = Eigen::kroneckerProduct(big_i, i).eval();
         });
 
-        std::cout << big_i << "\n\n";
+        // Evaluate ITM and PTM for the cell
+        if (exact_lut.fun_spec.size() != mapped_lut.fun_spec.size())
+            throw std::runtime_error("Exact and mapped LUT have different input size");
+        Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> itm(exact_lut.fun_spec.size(), 2);
+        Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> ptm(mapped_lut.fun_spec.size(), 2);
+        for (size_t i = 0; i < exact_lut.fun_spec.size(); i++) {
+            if (exact_lut.fun_spec[i]) {
+                itm(i, 0) = false;
+                itm(i, 1) = true;
+            } else {
+                itm(i, 0) = true;
+                itm(i, 1) = false;
+            }
 
-        z_matrix(0, 0) = 0.0;
-        z_matrix(0, 1) = 0.0;
-        z_matrix(1, 0) = 0.0;
-        z_matrix(1, 1) = 0.0;
+            if (mapped_lut.fun_spec[i]) {
+                ptm(i, 0) = false;
+                ptm(i, 1) = true;
+            } else {
+                ptm(i, 0) = true;
+                ptm(i, 1) = false;
+            }
+        }
+
+        // Evaluate output probability according to PTM
+        Eigen::MatrixXd big_p = big_i * itm.cast<double>();
+
+        // Sum contributes according to ITM
+        Eigen::Matrix2d z_matrix = Eigen::Matrix2d::Zero();
+        for (size_t i = 0; i < exact_lut.fun_spec.size(); i++) {
+            if (itm(i, 0)) {
+                z_matrix(0, 0) += big_p(i, 0);
+                z_matrix(1, 0) += big_p(i, 1);
+            } else {
+                z_matrix(1, 1) += big_p(i, 1);
+                z_matrix(0, 1) += big_p(i, 0);
+            }
+        }
 
         return z_matrix;
     }
@@ -107,8 +139,9 @@ namespace yosys_als {
      * Exposed functions
      */
 
-    dict<IdString, double> output_reliability(const Graph &g, const std::vector<Vertex> &topological_order,
-            const dict<Const, std::vector<mig_model_t>> &synthesized_luts, const std::vector<size_t> &mapping) {
+    dict<IdString, double> output_reliability(Module *const module, const Graph &g,
+            const std::vector<Vertex> &topological_order, dict<Const, std::vector<mig_model_t>> &synthesized_luts,
+            const std::vector<size_t> &mapping) {
         dict<IdString, double> rel;
         dict<vertex_t, Eigen::Matrix2d> z_matrix_for;
 
@@ -117,7 +150,10 @@ namespace yosys_als {
             if (boost::in_degree(v.value(), g) == 0) {
                 z_matrix_for[g[v.value()]] = z_in_degree_0(g, v.value());
             } else { // Other vertices (i.e. cells)
-                z_matrix_for[g[v.value()]] = z_in_degree_pos(g, v.value(), z_matrix_for);
+                auto &cell_function = get_lut_param(module->cell(g[v.value()].name));
+                auto &cell_synth_lut = synthesized_luts[cell_function];
+                z_matrix_for[g[v.value()]] = z_in_degree_pos(g, v.value(), z_matrix_for, cell_synth_lut[0],
+                        cell_synth_lut[mapping[v.index()]]);
 
                 // Cells connected to primary outputs
                 if (boost::out_degree(v.value(), g) == 0)

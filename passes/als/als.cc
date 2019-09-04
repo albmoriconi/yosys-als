@@ -85,7 +85,7 @@ namespace yosys_als {
             // TODO Move to optimizer
             std::vector<Vertex> topological_order;
             topological_sort(g, std::back_inserter(topological_order));
-            for (auto &rel : output_reliability(g, topological_order, synthesized_luts, std::vector<size_t>(topological_order.size(), 0)))
+            for (auto &rel : output_reliability(module, g, topological_order, synthesized_luts, std::vector<size_t>(topological_order.size(), 0)))
                 log("Output reliability %g\n", rel.second);
 
             // ...

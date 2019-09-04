@@ -39,10 +39,9 @@ namespace yosys_als {
      * @param mapping A vector of the desired LUT variants, ordered as \c topological_order
      * @return The reliability of the output nodes of the graph
      */
-    Yosys::dict<Yosys::IdString, double> output_reliability(const Graph &g,
+    Yosys::dict<Yosys::IdString, double> output_reliability(Yosys::Module *module, const Graph &g,
             const std::vector<Vertex> &topological_order,
-            const Yosys::dict<Yosys::Const, std::vector<mig_model_t>> &synthesized_luts,
-            const std::vector<size_t> &mapping);
+            Yosys::dict<Yosys::Const, std::vector<mig_model_t>> &synthesized_luts, const std::vector<size_t> &mapping);
 }
 
 #endif //YOSYS_ALS_OPTIMIZER_H
