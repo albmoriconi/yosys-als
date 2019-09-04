@@ -32,7 +32,6 @@
 #include "yosys_utils.h"
 #include "kernel/yosys.h"
 
-#include <boost/dynamic_bitset.hpp>
 #include <boost/range/adaptor/indexed.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 #include <Eigen/Dense>
