@@ -19,27 +19,19 @@
 
 /**
  * @file
- * @brief Optimization functions for Yosys ALS module
+ * @brief Optimization utility functions for Yosys ALS module
  */
 
-#include "kernel/yosys.h"
-#include "smtsynth.h"
+#ifndef YOSYS_ALS_OPTIMIZER_UTILS_H
+#define YOSYS_ALS_OPTIMIZER_UTILS_H
 
-#ifndef YOSYS_ALS_OPTIMIZER_H
-#define YOSYS_ALS_OPTIMIZER_H
+#include "graph.h"
+#include "smtsynth.h"
+#include "kernel/yosys.h"
 
 namespace yosys_als {
 
-    // TODO specify return type
-    /**
-     * @brief Optimizes the ALS problem using an evolutionary algorithm
-     * @param module A module
-     * @param synthesized_luts The synthesized LUTs
-     * @return
-     */
-    int als_optimizer_moeo(Yosys::Module *module,
-            const Yosys::dict<Yosys::Const, std::vector<mig_model_t>> &synthesized_luts);
 
 }
 
-#endif //YOSYS_ALS_OPTIMIZER_H
+#endif //YOSYS_ALS_OPTIMIZER_UTILS_H

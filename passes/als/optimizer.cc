@@ -17,138 +17,125 @@
  *
  */
 
-// [[CITE]] Signal probability for reliability evaluation of logic circuits
-// Denis Teixeira Franco, Maí Correia Vasconcelos, Lirida Naviner, and Jean-François Naviner
-
 /**
  * @file
- * @brief Optimization utility functions for Yosys ALS module
+ * @brief Optimization functions for Yosys ALS module
  */
 
 #include "optimizer.h"
 
 #include "graph.h"
-#include "smtsynth.h"
 #include "yosys_utils.h"
 #include "kernel/yosys.h"
 
-#include <boost/range/adaptor/indexed.hpp>
-#include <boost/range/adaptor/reversed.hpp>
-#include <Eigen/Dense>
-#include <unsupported/Eigen/KroneckerProduct>
+#include "boost/graph/topological_sort.hpp"
+#include <core/moeoRealObjectiveVector.h>
+#include <core/moeoObjectiveVectorTraits.h>
+#include <core/moeoVector.h>
+#include <eo>
+
+#include <random>
 
 USING_YOSYS_NAMESPACE
 
 namespace yosys_als {
 
     /*
-     * Utility functions
+     * Data types
      */
 
-    Eigen::Matrix2d z_in_degree_0(const Graph &g, const Vertex &v) {
-        Eigen::Matrix2d z_matrix;
+    /**
+     * Traits of the objective vector for the ALS optimization problem
+     */
+    class AlsObjectiveVectorTraits : public moeoObjectiveVectorTraits {
+    public:
+        /**
+         * @param Returns true if the ith objective have to be minimized
+         * @param i index of the objective
+         */
+        static bool minimizing(int i) {
+            return true;
+        };
 
-        switch (g[v].type) {
-            case vertex_t::CONSTANT_ZERO:
-                z_matrix(0, 0) = 1.0;
-                z_matrix(0, 1) = 0.0;
-                z_matrix(1, 0) = 0.0;
-                z_matrix(1, 1) = 0.0;
-                break;
-            case vertex_t::CONSTANT_ONE:
-                z_matrix(0, 0) = 0.0;
-                z_matrix(0, 1) = 0.0;
-                z_matrix(1, 0) = 0.0;
-                z_matrix(1, 1) = 1.0;
-                break;
-            case vertex_t::PRIMARY_INPUT:
-                z_matrix(0, 0) = 0.5;
-                z_matrix(0, 1) = 0.0;
-                z_matrix(1, 0) = 0.0;
-                z_matrix(1, 1) = 0.5;
-                break;
-            default:
-                throw std::runtime_error("Bad vertex " + g[v].name.str());
+        /**
+         * Returns true if the ith objective have to be maximized
+         * @param i index of the objective
+         */
+        static bool maximizing(int i) {
+            return false;
+        };
+
+        /**
+         * Returns the number of objectives
+         */
+        static unsigned int nObjectives() {
+            return 2;
+        };
+    };
+
+    /**
+     * Objective vector for the ALS optimization problem
+     */
+    typedef moeoRealObjectiveVector<AlsObjectiveVectorTraits> AlsObjectiveVector;
+
+    /**
+     * Individual for the ALS optimization problem
+     */
+    typedef moeoVector<AlsObjectiveVector, double, double, size_t> AlsIndividual;
+
+    /**
+     * Generator for random initialization of ALS individuals
+     */
+    class AlsGenerator {
+    public:
+        AlsGenerator() : mt(std::mt19937((std::random_device())())) { }
+
+        // NOTE Distribution is not uniform for all values of max
+        size_t roll(size_t max) {
+            return dist(mt) % (max + 1);
         }
 
-        return z_matrix;
-    }
+    private:
+        std::mt19937 mt;
+        std::uniform_int_distribution<size_t> dist;
+    };
 
-    Eigen::Matrix2d z_in_degree_pos(const Graph &g, const Vertex &v, dict<vertex_t, Eigen::Matrix2d> &z_matrix_for,
-            const mig_model_t &exact_lut, const mig_model_t &mapped_lut) {
-        // Get z matrices of the input drivers
-        auto in_edges = boost::in_edges(v, g);
-        std::vector<Eigen::Matrix2d> z_inputs(in_edges.second - in_edges.first);
-        std::for_each(in_edges.first, in_edges.second, [&](const Edge &e) {
-            z_inputs[g[e].signal] = z_matrix_for[g[boost::source(e, g)]];
-        });
+    /**
+     * Initialization functor for the ALS individuals
+     */
+    class AlsInit : public eoInit<AlsIndividual> {
+    public:
+        typedef typename AlsIndividual::AtomType AtomType;
 
-        // Evaluate I matrix for the cell (std::reduce is not C++11)
-        Eigen::MatrixXd big_i = z_inputs[0].replicate(1, 1);
-        std::for_each(z_inputs.begin() + 1, z_inputs.end(), [&](const Eigen::Matrix2d &i) {
-           big_i = Eigen::kroneckerProduct(big_i, i).eval();
-        });
+        AlsInit(const Graph &g, dict<Const, std::vector<mig_model_t>> &luts, const std::vector<Vertex> &order) :
+            g(g), luts(luts), order(order) {}
 
-        // Evaluate ITM and PTM for the cell
-        if (exact_lut.fun_spec.size() != mapped_lut.fun_spec.size())
-            throw std::runtime_error("Exact and mapped LUT have different input size");
-        Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> itm(exact_lut.fun_spec.size(), 2);
-        Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> ptm(mapped_lut.fun_spec.size(), 2);
-        for (size_t i = 0; i < exact_lut.fun_spec.size(); i++) {
-            itm(i, 0) = !exact_lut.fun_spec[i];
-            itm(i, 1) = exact_lut.fun_spec[i];
-            ptm(i, 0) = !mapped_lut.fun_spec[i];
-            ptm(i, 1) = mapped_lut.fun_spec[i];
+        void operator()(AlsIndividual& als_i) override {
+            als_i.resize(order.size());
+
+            for (size_t i = 0; i < order.size(); i++)
+                als_i[i] = generator.roll(luts[get_lut_param(g[order[i]].cell)].size());
+
+            als_i.invalidate();
         }
 
-        // Evaluate output probability according to PTM
-        Eigen::MatrixXd big_p = big_i * itm.cast<double>();
+    private:
+        static AlsGenerator generator;
 
-        // Sum contributes according to ITM
-        Eigen::Matrix2d z_matrix = Eigen::Matrix2d::Zero();
-        for (size_t i = 0; i < exact_lut.fun_spec.size(); i++) {
-            if (itm(i, 0)) {
-                z_matrix(0, 0) += big_p(i, 0);
-                z_matrix(1, 0) += big_p(i, 1);
-            } else {
-                z_matrix(1, 1) += big_p(i, 1);
-                z_matrix(0, 1) += big_p(i, 0);
-            }
-        }
-
-        return z_matrix;
-    }
-
-    double reliability_from_z(const Eigen::Matrix2d &z) {
-        return z(0, 0) + z(1, 1);
-    }
+        const Graph &g;
+        dict<Const, std::vector<mig_model_t>> &luts;
+        const std::vector<Vertex> &order;
+    };
 
     /*
      * Exposed functions
      */
 
-    dict<IdString, double> output_reliability(Module *const module, const Graph &g,
-            const std::vector<Vertex> &topological_order, dict<Const, std::vector<mig_model_t>> &synthesized_luts,
-            const std::vector<size_t> &mapping) {
-        dict<IdString, double> rel;
-        dict<vertex_t, Eigen::Matrix2d> z_matrix_for;
+    int als_optimizer_moeo(Module *module, dict<Const, std::vector<mig_model_t>> &synthesized_luts) {
+        Graph g = graph_from_module(module);
+        std::vector<Vertex> topological_order;
+        topological_sort(g, std::back_inserter(topological_order));
 
-        for (auto const &v : boost::adaptors::reverse(topological_order) | boost::adaptors::indexed(0)) {
-            // Primary inputs and constants
-            if (boost::in_degree(v.value(), g) == 0) {
-                z_matrix_for[g[v.value()]] = z_in_degree_0(g, v.value());
-            } else { // Other vertices (i.e. cells)
-                auto &cell_function = get_lut_param(module->cell(g[v.value()].name));
-                auto &cell_synth_lut = synthesized_luts[cell_function];
-                z_matrix_for[g[v.value()]] = z_in_degree_pos(g, v.value(), z_matrix_for, cell_synth_lut[0],
-                        cell_synth_lut[mapping[v.index()]]);
-
-                // Cells connected to primary outputs
-                if (boost::out_degree(v.value(), g) == 0)
-                    rel[g[v.value()].name] = reliability_from_z(z_matrix_for[g[v.value()]]);
-            }
-        }
-
-        return rel;
+        return 0;
     }
 }

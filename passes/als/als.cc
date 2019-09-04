@@ -19,19 +19,16 @@
 
 // TODO Add LICENSE
 // TODO Add README
+// TODO Better build system
 /**
  * @file
  * @brief Approximate logic synthesis pass for Yosys ALS module
  */
 
 #include "smtsynth.h"
-#include "graph.h"
 #include "optimizer.h"
 #include "yosys_utils.h"
 #include "kernel/yosys.h"
-
-// TODO Move to optimizer
-#include "boost/graph/topological_sort.hpp"
 
 #include <string>
 #include <vector>
@@ -79,15 +76,8 @@ namespace yosys_als {
                 }
             }
 
-            // 3. Create a graph structure
-            Graph g = graph_from_module(module);
-            // TODO Move to optimizer
-            std::vector<Vertex> topological_order;
-            topological_sort(g, std::back_inserter(topological_order));
-            for (auto &rel : output_reliability(module, g, topological_order, synthesized_luts, std::vector<size_t>(topological_order.size(), 0)))
-                log("Output reliability %g\n", rel.second);
-
-            // ...
+            // 3. Optimize
+            auto results = als_optimizer_moeo(module, synthesized_luts);
         }
     };
 
@@ -116,6 +106,7 @@ namespace yosys_als {
             AlsWorker worker;
 
             // TODO Add arguments for specifying input probability
+            // TODO Add arguments for specifying output weight
             size_t argidx;
             for (argidx = 1; argidx < args.size(); argidx++) {
                 if (args[argidx] == "-d") {
