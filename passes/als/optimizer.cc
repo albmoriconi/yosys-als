@@ -113,9 +113,10 @@ namespace yosys_als {
                 // TODO We need this because PIs are in the genotype; maybe this should be changed
                 Cell *cell = g[v.value()].cell;
 
-                //if (cell)
-                //    als_i[v.index()] = rng.random((luts[get_lut_param(cell)].size()));
-                //else
+                if (cell) {
+                    if (rng.random(2) == 1)
+                        als_i[v.index()] = rng.random((luts[get_lut_param(cell)].size()));
+                } else
                     als_i[v.index()] = 0;
             }
 
@@ -371,7 +372,7 @@ namespace yosys_als {
             // definition of the archive
             moeoUnboundedArchive<AlsIndividual> arch;
             // stopping criteria
-            unsigned int maxGen = parser.createParam((unsigned int) (100), "maxGen",
+            unsigned int maxGen = parser.createParam((unsigned int) (1000), "maxGen",
                     "Maximum number of gen.", 'G', "Stopping criterion").value();
 
             eoGenContinue<AlsIndividual> term(maxGen);
