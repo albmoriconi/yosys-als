@@ -176,7 +176,7 @@ namespace yosys_als {
     std::array<double, 2> evaluation_function(const Graph &g, const std::vector<Vertex> &topological_order,
             dict<Const, std::vector<mig_model_t>> &synthesized_luts, dict<vertex_t, size_t> &sol) {
         return std::array<double, 2>
-            {1.0 - circuit_reliability(output_reliability(g, topological_order, synthesized_luts, sol)),
+            {fabs(0.8 - (1.0 - circuit_reliability(output_reliability(g, topological_order, synthesized_luts, sol)))),
              gates_ratio(synthesized_luts, sol)};
     }
 
@@ -251,8 +251,8 @@ namespace yosys_als {
     std::vector<dict<vertex_t, size_t>> optimizer_mosa(Module *const module,
             dict<Const, std::vector<mig_model_t>> &synthesized_luts) {
         // Parameters
-        constexpr double alpha = 0.9;
-        double temp = 25; // Prova temp 5*luts, it 4 * temp
+        constexpr double alpha = 0.8;
+        double temp = 258; // Prova temp 5*luts, it 4 * temp
 
         // Create graph and topological ordering
         Graph g = graph_from_module(module);
@@ -269,12 +269,28 @@ namespace yosys_als {
                 sol[g[v]] = 0; // rand() % synthesized_luts[get_lut_param(g[v].cell)].size();
         }
 
-        auto eval = evaluation_function(g, topological_order, synthesized_luts, sol);
-        log("%s %g %g\n", sol_string(g, sol, topological_order).c_str(), eval[0], eval[1]);
+        //auto eval = evaluation_function(g, topological_order, synthesized_luts, sol);
+        //log("%s %g %g\n", sol_string(g, sol, topological_order).c_str(), eval[0], eval[1]);
 
         hall_of_fame.push_back(sol);
         size_t moved = 0;
-        for (size_t i = 0; i < 100; i++) {
+        constexpr size_t iter = 1034;
+        // TODO Take this out ASAP
+        for (size_t i = 0; i < iter; i++) {
+            if (i % 10 == 0 || i == iter-1) {
+                size_t curr = floor(31 * static_cast<double>(i) / iter);
+                std::cerr << "\r     |";
+                for (size_t j = 0; j < curr; j++)
+                    std::cerr << "█";
+                if (i != iter-1)
+                    for (size_t j = curr; j < 31; j++)
+                        std::cerr << " ";
+                if (i == iter-1 && i % 10 != 0)
+                    std::cerr << "█";
+                std::cerr << "|" << std::flush;
+                if (i == iter-1 && i % 10 != 0)
+                    std::cerr << "\n";
+            }
             auto new_sol = neighbor_of(hall_of_fame.back(), synthesized_luts);
 
             auto dom = sol_dominates(g, topological_order, synthesized_luts, new_sol, hall_of_fame.back());
@@ -295,7 +311,7 @@ namespace yosys_als {
         }
 
         log("Moved: %lu\n", moved);
-        eval = evaluation_function(g, topological_order, synthesized_luts, hall_of_fame.back());
+        auto eval = evaluation_function(g, topological_order, synthesized_luts, hall_of_fame.back());
         log("%s %g %g\n", sol_string(g, hall_of_fame.back(), topological_order).c_str(), eval[0], eval[1]);
         return hall_of_fame;
     }
