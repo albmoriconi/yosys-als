@@ -29,9 +29,16 @@
 #include "smtsynth.h"
 #include "kernel/yosys.h"
 
+#include <Eigen/Dense>
+
 namespace yosys_als {
 
+    Eigen::Matrix2d z_in_degree_0(const Graph &g, const Vertex &v);
 
+    Eigen::Matrix2d z_in_degree_pos(const Graph &g, const Vertex &v, Yosys::dict<vertex_t, Eigen::Matrix2d> &z_matrix_for,
+                                    const mig_model_t &exact_lut, const mig_model_t &mapped_lut);
+
+    double reliability_from_z(const Eigen::Matrix2d &z);
 }
 
 #endif //YOSYS_ALS_OPTIMIZER_UTILS_H

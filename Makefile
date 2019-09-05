@@ -25,8 +25,8 @@ als.o: $(als_dir)/als.cc $(als_dir)/smtsynth.h $(als_dir)/optimizer.h $(als_dir)
 graph.o: $(als_dir)/graph.cc $(als_dir)/graph.h
 	$(yosys-exec-command) $< -o $@ $(opt)
 
-optimizer.o: $(als_dir)/optimizer.cc $(als_dir)/optimizer.h $(als_dir)/graph.h $(als_dir)/yosys_utils.cc
-	$(yosys-exec-command) $< -o $@ $(moeo_include) $(eo_include) $(opt)
+optimizer.o: $(als_dir)/optimizer.cc $(als_dir)/optimizer.h $(als_dir)/graph.h $(als_dir)/yosys_utils.cc $(als_dir)/optimizer_utils.cc
+	$(yosys-exec-command) $< -o $@ $(moeo_include) $(eo_include) $(eigen_include) $(opt)
 
 optimizer_utils.o: $(als_dir)/optimizer_utils.cc $(als_dir)/optimizer.h $(als_dir)/smtsynth.h $(als_dir)/smt_utils.h $(als_dir)/graph.h $(als_dir)/yosys_utils.h
 	$(yosys-exec-command) $< -o $@ $(eigen_include) $(opt)

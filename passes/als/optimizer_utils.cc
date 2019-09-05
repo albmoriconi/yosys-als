@@ -29,10 +29,8 @@
 
 #include "graph.h"
 #include "smtsynth.h"
-#include "yosys_utils.h"
 #include "kernel/yosys.h"
 
-#include <boost/range/adaptor/indexed.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 #include <Eigen/Dense>
 #include <unsupported/Eigen/KroneckerProduct>
@@ -121,38 +119,5 @@ namespace yosys_als {
 
     double reliability_from_z(const Eigen::Matrix2d &z) {
         return z(0, 0) + z(1, 1);
-    }
-
-    /**
-     * @brief Evaluates the output reliability for a given LUT mapping
-     * @param g A graph with the topological structure of the circuit
-     * @param topological_order A topological ordering for the graph \c g
-     * @param synthesized_luts The index of the synthesized LUTs
-     * @param mapping A vector of the desired LUT variants, ordered as \c topological_order
-     * @return The reliability of the output nodes of the graph
-     */
-    dict<IdString, double> output_reliability(Module *const module, const Graph &g,
-            const std::vector<Vertex> &topological_order, dict<Const, std::vector<mig_model_t>> &synthesized_luts,
-            const std::vector<size_t> &mapping) {
-        dict<IdString, double> rel;
-        dict<vertex_t, Eigen::Matrix2d> z_matrix_for;
-
-        for (auto const &v : boost::adaptors::reverse(topological_order) | boost::adaptors::indexed(0)) {
-            // Primary inputs and constants
-            if (boost::in_degree(v.value(), g) == 0) {
-                z_matrix_for[g[v.value()]] = z_in_degree_0(g, v.value());
-            } else { // Other vertices (i.e. cells)
-                auto &cell_function = get_lut_param(module->cell(g[v.value()].name));
-                auto &cell_synth_lut = synthesized_luts[cell_function];
-                z_matrix_for[g[v.value()]] = z_in_degree_pos(g, v.value(), z_matrix_for, cell_synth_lut[0],
-                        cell_synth_lut[mapping[v.index()]]);
-
-                // Cells connected to primary outputs
-                if (boost::out_degree(v.value(), g) == 0)
-                    rel[g[v.value()].name] = reliability_from_z(z_matrix_for[g[v.value()]]);
-            }
-        }
-
-        return rel;
     }
 }
