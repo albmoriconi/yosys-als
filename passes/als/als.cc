@@ -77,6 +77,7 @@ namespace yosys_als {
             }
 
             // 3. Optimize
+            log_header(module->design, "Running evolutionary algorithm for optimization.\n");
             auto results = als_optimizer_moeo(module, synthesized_luts);
         }
     };

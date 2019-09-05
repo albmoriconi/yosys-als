@@ -100,7 +100,7 @@ namespace yosys_als {
         }
 
         // Evaluate output probability according to PTM
-        Eigen::MatrixXd big_p = big_i * itm.cast<double>();
+        Eigen::MatrixXd big_p = big_i * ptm.cast<double>();
 
         // Sum contributes according to ITM
         Eigen::Matrix2d z_matrix = Eigen::Matrix2d::Zero();
