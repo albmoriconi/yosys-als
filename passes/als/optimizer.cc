@@ -111,11 +111,11 @@ namespace yosys_als {
 
             for (auto const &v : boost::adaptors::reverse(order) | boost::adaptors::indexed(0)) {
                 // TODO We need this because PIs are in the genotype; maybe this should be changed
-                Cell *cell = g[order[v.value()]].cell;
+                Cell *cell = g[v.value()].cell;
 
-                if (cell)
-                    als_i[v.index()] = rng.random((luts[get_lut_param(cell)].size()));
-                else
+                //if (cell)
+                //    als_i[v.index()] = rng.random((luts[get_lut_param(cell)].size()));
+                //else
                     als_i[v.index()] = 0;
             }
 
@@ -185,7 +185,7 @@ namespace yosys_als {
 
             for (auto const &v : boost::adaptors::reverse(order) | boost::adaptors::indexed(0)) {
                 // TODO We need this because PIs are in the genotype; maybe this should be changed
-                Cell *cell = g[order[v.value()]].cell;
+                Cell *cell = g[v.value()].cell;
 
                 if (cell)
                     count += luts[get_lut_param(cell)][als_i[v.index()]].num_gates;
@@ -308,11 +308,11 @@ namespace yosys_als {
         state.storeFunctor(propMutation);
 
         // First read the individual level parameters
-        eoValueParam<double> &pCrossParam = parser.createParam(0.25, "pCross",
+        eoValueParam<double> &pCrossParam = parser.createParam(0.5, "pCross",
                 "Probability of Crossover", 'c', "Variation Operators" );
         if ((pCrossParam.value() < 0) || (pCrossParam.value() > 1))
             throw std::runtime_error("Invalid pCross");
-        eoValueParam<double>& pMutParam = parser.createParam(0.35, "pMut",
+        eoValueParam<double>& pMutParam = parser.createParam(0.75, "pMut",
                 "Probability of Mutation", 'm', "Variation Operators" );
         if ((pMutParam.value() < 0) || (pMutParam.value() > 1))
             throw std::runtime_error("Invalid pMut");
@@ -351,6 +351,8 @@ namespace yosys_als {
             arg[1] = '\0';
             argv[0] = arg;
             eoParser parser(1, argv);
+            unsigned int popSize = parser.createParam((unsigned int) (100), "popSize",
+                    "Population Size", 'P', "Evolution Engine" ).value();
             eoState state;
 
             /*** the representation-dependent things ***/
