@@ -170,13 +170,13 @@ namespace yosys_als {
             count += luts[get_lut_param(v.first.cell)][v.second].num_gates;
         }
 
-        return static_cast<float>(count) / baseline;
+        return static_cast<double>(count) / baseline;
     }
 
     std::array<double, 2> evaluation_function(const Graph &g, const std::vector<Vertex> &topological_order,
             dict<Const, std::vector<mig_model_t>> &synthesized_luts, dict<vertex_t, size_t> &sol) {
         return std::array<double, 2>
-            {fabs(0.8 - (1.0 - circuit_reliability(output_reliability(g, topological_order, synthesized_luts, sol)))),
+            {fabs(0.5 - (1.0 - circuit_reliability(output_reliability(g, topological_order, synthesized_luts, sol)))),
              gates_ratio(synthesized_luts, sol)};
     }
 
@@ -248,7 +248,7 @@ namespace yosys_als {
         return prob > 0 ? prob : 0;
     }
 
-    std::vector<dict<vertex_t, size_t>> optimizer_mosa(Module *const module,
+    dict<vertex_t, size_t> optimizer_sa(Module *const module,
             dict<Const, std::vector<mig_model_t>> &synthesized_luts) {
         // Parameters
         constexpr double alpha = 0.8;
@@ -313,6 +313,6 @@ namespace yosys_als {
         log("Moved: %lu\n", moved);
         auto eval = evaluation_function(g, topological_order, synthesized_luts, hall_of_fame.back());
         log("%s %g %g\n", sol_string(g, hall_of_fame.back(), topological_order).c_str(), eval[0], eval[1]);
-        return hall_of_fame;
+        return hall_of_fame.back();
     }
 }

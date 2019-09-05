@@ -31,7 +31,7 @@
 
 namespace yosys_als {
 
-    std::vector<Yosys::dict<vertex_t, size_t>> optimizer_mosa(Yosys::Module *module,
+    Yosys::dict<vertex_t, size_t> optimizer_sa(Yosys::Module *module,
             Yosys::dict<Yosys::Const, std::vector<mig_model_t>> &synthesized_luts);
 }
 
