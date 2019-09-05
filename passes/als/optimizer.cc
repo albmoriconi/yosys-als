@@ -227,36 +227,32 @@ namespace yosys_als {
         auto eval1 = evaluation_function(g, topological_order, synthesized_luts, sol1);
         auto eval2 = evaluation_function(g, topological_order, synthesized_luts, sol2);
 
-        log("%g %g\n", eval1[0], eval1[1]);
-        log("%g %g\n\n", eval2[0], eval2[1]);
-        if (eval1[0] == eval2[0] && eval1[1] == eval2[1])
-            return 0;
-        else if (eval1[0] > eval2[0] && eval1[1] >= eval2[1])
-            return 1;
-        else if (eval1[0] >= eval2[0] && eval1[1] > eval2[1])
-            return 1;
-        else if (eval2[0] > eval1[0] && eval2[1] >= eval1[1])
-            return -1;
-        else if (eval2[0] >= eval1[0] && eval2[1] > eval1[1])
-            return -1;
+        // TODO We have to think this thoroughly - for now use a single indicator
+        auto ind1 = 0.7 * eval1[0] + 0.3 * eval1[1];
+        auto ind2 = 0.7 * eval2[0] + 0.3 * eval2[1];
 
-        return 0;
+        if (ind1 < ind2)
+            return 1;
+
+        return -1;
     }
 
     double accept_probability(const std::array<double, 2> &eval1, const std::array<double, 2> &eval2, const double temp) {
         // TODO Evaluate this
-        double cost = ((eval2[0] - eval1[0]) + (eval2[1] - eval2[0])) / 2;
+        //double cost = ((eval2[0] - eval1[0]) + (eval2[1] - eval2[0])) / 2;
+        auto ind1 = 0.7 * eval1[0] + 0.3 * eval1[1];
+        auto ind2 = 0.7 * eval2[0] + 0.3 * eval2[1];
+        double cost = ind1 - ind2;
         double prob = exp(-cost/temp);
 
-        assert(prob > 0);
-        return prob;
+        return prob > 0 ? prob : 0;
     }
 
     std::vector<dict<vertex_t, size_t>> optimizer_mosa(Module *const module,
             dict<Const, std::vector<mig_model_t>> &synthesized_luts) {
         // Parameters
         constexpr double alpha = 0.9;
-        double temp = 100000;
+        double temp = 25; // Prova temp 5*luts, it 4 * temp
 
         // Create graph and topological ordering
         Graph g = graph_from_module(module);
@@ -278,7 +274,7 @@ namespace yosys_als {
 
         hall_of_fame.push_back(sol);
         size_t moved = 0;
-        for (size_t i = 0; i < 10; i++) {
+        for (size_t i = 0; i < 100; i++) {
             auto new_sol = neighbor_of(hall_of_fame.back(), synthesized_luts);
 
             auto dom = sol_dominates(g, topological_order, synthesized_luts, new_sol, hall_of_fame.back());
@@ -289,8 +285,10 @@ namespace yosys_als {
                 auto eval2 = evaluation_function(g, topological_order, synthesized_luts, hall_of_fame.back());
                 double prob = accept_probability(eval1, eval2, temp);
                 double chance = (double) rand() / RAND_MAX;
-                if (prob < chance)
+                if (chance < prob) {
                     hall_of_fame.push_back(new_sol);
+                    moved++;
+                }
             }
 
             temp = alpha * temp;

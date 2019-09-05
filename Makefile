@@ -4,7 +4,7 @@ yosys-build-command = $(yosys-config) --build
 als_dir = passes/als
 eigen_include = -I/usr/local/include/eigen3
 libs = -lboolector
-#opt = -O0
+opt = -O0
 
 all: als.so
 
