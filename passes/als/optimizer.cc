@@ -20,6 +20,9 @@
 // [[CITE]] Signal probability for reliability evaluation of logic circuits
 // Denis Teixeira Franco, Maí Correia Vasconcelos, Lirida Naviner, and Jean-François Naviner
 
+// [[CITE]] Multiobjective Simulated Annealing: A Comparative Study to Evolutionary Algorithms
+// Dongkyung Nam, and Cheol Hoon Park
+
 /**
  * @file
  * @brief Optimization utility functions for Yosys ALS module
@@ -32,8 +35,7 @@
 #include "yosys_utils.h"
 #include "kernel/yosys.h"
 
-#include <boost/range/adaptor/indexed.hpp>
-#include <boost/range/adaptor/reversed.hpp>
+#include <boost/graph/topological_sort.hpp>
 #include <Eigen/Dense>
 #include <unsupported/Eigen/KroneckerProduct>
 
@@ -102,7 +104,7 @@ namespace yosys_als {
         }
 
         // Evaluate output probability according to PTM
-        Eigen::MatrixXd big_p = big_i * itm.cast<double>();
+        Eigen::MatrixXd big_p = big_i * ptm.cast<double>();
 
         // Sum contributes according to ITM
         Eigen::Matrix2d z_matrix = Eigen::Matrix2d::Zero();
@@ -127,28 +129,176 @@ namespace yosys_als {
      * Exposed functions
      */
 
-    dict<IdString, double> output_reliability(Module *const module, const Graph &g,
-            const std::vector<Vertex> &topological_order, dict<Const, std::vector<mig_model_t>> &synthesized_luts,
-            const std::vector<size_t> &mapping) {
+    dict<IdString, double> output_reliability(const Graph &g, const std::vector<Vertex> &topological_order,
+            dict<Const, std::vector<mig_model_t>> &synthesized_luts, dict<vertex_t, size_t> &mapping) {
         dict<IdString, double> rel;
         dict<vertex_t, Eigen::Matrix2d> z_matrix_for;
 
-        for (auto const &v : boost::adaptors::reverse(topological_order) | boost::adaptors::indexed(0)) {
-            // Primary inputs and constants
-            if (boost::in_degree(v.value(), g) == 0) {
-                z_matrix_for[g[v.value()]] = z_in_degree_0(g, v.value());
+        for (auto &v : topological_order) {
+            if (boost::in_degree(v, g) == 0) {
+                z_matrix_for[g[v]] = z_in_degree_0(g, v);
             } else { // Other vertices (i.e. cells)
-                auto &cell_function = get_lut_param(module->cell(g[v.value()].name));
-                auto &cell_synth_lut = synthesized_luts[cell_function];
-                z_matrix_for[g[v.value()]] = z_in_degree_pos(g, v.value(), z_matrix_for, cell_synth_lut[0],
-                        cell_synth_lut[mapping[v.index()]]);
+                auto &cell_function = get_lut_param(g[v].cell);
+                auto &lut = synthesized_luts[cell_function];
+                z_matrix_for[g[v]] = z_in_degree_pos(g, v, z_matrix_for, lut[0], lut[mapping[g[v]]]);
 
                 // Cells connected to primary outputs
-                if (boost::out_degree(v.value(), g) == 0)
-                    rel[g[v.value()].name] = reliability_from_z(z_matrix_for[g[v.value()]]);
+                if (boost::out_degree(v, g) == 0)
+                    rel[g[v].name] = reliability_from_z(z_matrix_for[g[v]]);
             }
         }
 
         return rel;
+    }
+
+    double circuit_reliability(const dict<IdString, double> &all_the_rels) {
+        double c_rel = 1.0;
+
+        // FIXME Don't assume all cells go to only one output
+        for (auto &a_rel : all_the_rels)
+            c_rel *= a_rel.second;
+
+        return c_rel;
+    }
+
+    double gates_ratio(dict<Const, std::vector<mig_model_t>> &luts, dict<vertex_t, size_t> &sol) {
+        size_t count = 0;
+        size_t baseline = 0;
+
+        for (auto const &v : sol) {
+            baseline += luts[get_lut_param(v.first.cell)][0].num_gates;
+            count += luts[get_lut_param(v.first.cell)][v.second].num_gates;
+        }
+
+        return static_cast<float>(count) / baseline;
+    }
+
+    std::array<double, 2> evaluation_function(const Graph &g, const std::vector<Vertex> &topological_order,
+            dict<Const, std::vector<mig_model_t>> &synthesized_luts, dict<vertex_t, size_t> &sol) {
+        return std::array<double, 2>
+            {1.0 - circuit_reliability(output_reliability(g, topological_order, synthesized_luts, sol)),
+             gates_ratio(synthesized_luts, sol)};
+    }
+
+    dict<vertex_t, size_t> neighbor_of(dict<vertex_t, size_t> &sol, dict<Const, std::vector<mig_model_t>> &luts) {
+        dict<vertex_t, size_t> neighbor;
+        auto pos = rand() % sol.size();
+
+        for (auto &gene : sol) {
+            if (neighbor.size() == sol.size() - pos - 1) {
+                // TODO Should we take at random or only move by one?
+                size_t max = luts[get_lut_param(gene.first.cell)].size() - 1;
+
+                if (gene.second == max) {
+                    if (gene.second != 0)
+                        neighbor[gene.first] = gene.second - 1;
+                } else if (gene.second == 0) {
+                    if (gene.second != max)
+                        neighbor[gene.first] = gene.second + 1;
+                } else {
+                    auto chance = rand() % 2;
+                    if (chance == 0)
+                        neighbor[gene.first] = gene.second - 1;
+                    else
+                        neighbor[gene.first] = gene.second + 1;
+                }
+            }
+            else
+                neighbor[gene.first] = gene.second;
+        }
+
+        return neighbor;
+    }
+
+    std::string sol_string(const Graph &g, dict<vertex_t, size_t> &sol, const std::vector<Vertex> &order) {
+        std::string s;
+
+        for (auto &v : order) {
+            if (g[v].type == vertex_t::CELL)
+                s += sol[g[v]] + 48;
+        }
+
+        return s;
+    }
+
+    int sol_dominates(const Graph &g, const std::vector<Vertex> &topological_order,
+            dict<Const, std::vector<mig_model_t>> &synthesized_luts,
+            dict<vertex_t, size_t> &sol1, dict<vertex_t, size_t> &sol2) {
+        auto eval1 = evaluation_function(g, topological_order, synthesized_luts, sol1);
+        auto eval2 = evaluation_function(g, topological_order, synthesized_luts, sol2);
+
+        log("%g %g\n", eval1[0], eval1[1]);
+        log("%g %g\n\n", eval2[0], eval2[1]);
+        if (eval1[0] == eval2[0] && eval1[1] == eval2[1])
+            return 0;
+        else if (eval1[0] > eval2[0] && eval1[1] >= eval2[1])
+            return 1;
+        else if (eval1[0] >= eval2[0] && eval1[1] > eval2[1])
+            return 1;
+        else if (eval2[0] > eval1[0] && eval2[1] >= eval1[1])
+            return -1;
+        else if (eval2[0] >= eval1[0] && eval2[1] > eval1[1])
+            return -1;
+
+        return 0;
+    }
+
+    double accept_probability(const std::array<double, 2> &eval1, const std::array<double, 2> &eval2, const double temp) {
+        // TODO Evaluate this
+        double cost = ((eval2[0] - eval1[0]) + (eval2[1] - eval2[0])) / 2;
+        double prob = exp(-cost/temp);
+
+        assert(prob > 0);
+        return prob;
+    }
+
+    std::vector<dict<vertex_t, size_t>> optimizer_mosa(Module *const module,
+            dict<Const, std::vector<mig_model_t>> &synthesized_luts) {
+        // Parameters
+        constexpr double alpha = 0.9;
+        double temp = 100000;
+
+        // Create graph and topological ordering
+        Graph g = graph_from_module(module);
+        std::vector<Vertex> topological_order;
+        topological_sort(g, std::back_inserter(topological_order));
+        std::reverse(topological_order.begin(), topological_order.end());
+
+        // Create first solution
+        std::vector<dict<vertex_t, size_t>> hall_of_fame;
+        dict<vertex_t, size_t> sol;
+        srand(time(nullptr));
+        for (auto &v : topological_order) {
+            if (g[v].type == vertex_t::CELL)
+                sol[g[v]] = 0; // rand() % synthesized_luts[get_lut_param(g[v].cell)].size();
+        }
+
+        auto eval = evaluation_function(g, topological_order, synthesized_luts, sol);
+        log("%s %g %g\n", sol_string(g, sol, topological_order).c_str(), eval[0], eval[1]);
+
+        hall_of_fame.push_back(sol);
+        size_t moved = 0;
+        for (size_t i = 0; i < 10; i++) {
+            auto new_sol = neighbor_of(hall_of_fame.back(), synthesized_luts);
+
+            auto dom = sol_dominates(g, topological_order, synthesized_luts, new_sol, hall_of_fame.back());
+            if (dom != -1)
+                hall_of_fame.push_back(new_sol);
+            else {
+                auto eval1 = evaluation_function(g, topological_order, synthesized_luts, new_sol);
+                auto eval2 = evaluation_function(g, topological_order, synthesized_luts, hall_of_fame.back());
+                double prob = accept_probability(eval1, eval2, temp);
+                double chance = (double) rand() / RAND_MAX;
+                if (prob < chance)
+                    hall_of_fame.push_back(new_sol);
+            }
+
+            temp = alpha * temp;
+        }
+
+        log("Moved: %lu\n", moved);
+        eval = evaluation_function(g, topological_order, synthesized_luts, hall_of_fame.back());
+        log("%s %g %g\n", sol_string(g, hall_of_fame.back(), topological_order).c_str(), eval[0], eval[1]);
+        return hall_of_fame;
     }
 }

@@ -25,23 +25,14 @@
 #ifndef YOSYS_ALS_OPTIMIZER_H
 #define YOSYS_ALS_OPTIMIZER_H
 
-#include "graph.h"
 #include "smtsynth.h"
 #include "kernel/yosys.h"
+#include "graph.h"
 
 namespace yosys_als {
 
-    /**
-     * @brief Evaluates the output reliability for a given LUT mapping
-     * @param g A graph with the topological structure of the circuit
-     * @param topological_order A topological ordering for the graph \c g
-     * @param synthesized_luts The index of the synthesized LUTs
-     * @param mapping A vector of the desired LUT variants, ordered as \c topological_order
-     * @return The reliability of the output nodes of the graph
-     */
-    Yosys::dict<Yosys::IdString, double> output_reliability(Yosys::Module *module, const Graph &g,
-            const std::vector<Vertex> &topological_order,
-            Yosys::dict<Yosys::Const, std::vector<mig_model_t>> &synthesized_luts, const std::vector<size_t> &mapping);
+    std::vector<Yosys::dict<vertex_t, size_t>> optimizer_mosa(Yosys::Module *module,
+            Yosys::dict<Yosys::Const, std::vector<mig_model_t>> &synthesized_luts);
 }
 
 #endif //YOSYS_ALS_OPTIMIZER_H

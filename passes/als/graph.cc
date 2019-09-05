@@ -42,6 +42,7 @@ namespace yosys_als {
         for (auto cell : module->cells()) {
             auto v = boost::add_vertex(g);
             g[v].name = cell->name;
+            g[v].cell = cell;
             g[v].type = vertex_t::CELL;
             vertex_map[cell->name] = v;
 
@@ -79,6 +80,7 @@ namespace yosys_als {
                                 if (input == vertex_map.end()) {
                                     auto v = boost::add_vertex(g);
                                     g[v].name = sig.wire->name;
+                                    g[v].cell = nullptr;
                                     g[v].type = vertex_t::PRIMARY_INPUT;
                                     vertex_map[sig.wire->name] = v;
                                 }
@@ -89,6 +91,8 @@ namespace yosys_als {
                                 if (sig.data == State::S1) {
                                     if (!one_v) {
                                         auto v = boost::add_vertex(g);
+                                        g[v].cell = nullptr;
+                                        g[v].name = "";
                                         g[v].type = vertex_t::CONSTANT_ONE;
                                         one_v = v;
                                     }
@@ -97,6 +101,8 @@ namespace yosys_als {
                                 } else {
                                     if (!zero_v) {
                                         auto v = boost::add_vertex(g);
+                                        g[v].cell = nullptr;
+                                        g[v].name = "";
                                         g[v].type = vertex_t::CONSTANT_ZERO;
                                         zero_v = v;
                                     }

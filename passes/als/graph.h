@@ -35,6 +35,7 @@ namespace yosys_als {
     struct vertex_t {
         enum {CONSTANT_ZERO, CONSTANT_ONE, PRIMARY_INPUT, CELL} type;
         Yosys::IdString name;
+        Yosys::Cell *cell;
 
         unsigned int hash() const {
             return name.hash();
