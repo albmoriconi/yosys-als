@@ -6,7 +6,7 @@ eigen_include = -I/usr/local/include/eigen3
 moeo_include = -I/usr/local/include/paradiseo/moeo
 eo_include = -I/usr/local/include/paradiseo/eo
 libs = -lboolector
-#opt = -O0
+opt = -O0
 
 all: als.so
 
@@ -31,8 +31,8 @@ optimizer.o: $(als_dir)/optimizer.cc $(als_dir)/optimizer.h $(als_dir)/graph.h $
 optimizer_utils.o: $(als_dir)/optimizer_utils.cc $(als_dir)/optimizer.h $(als_dir)/smtsynth.h $(als_dir)/smt_utils.h $(als_dir)/graph.h $(als_dir)/yosys_utils.h
 	$(yosys-exec-command) $< -o $@ $(eigen_include) $(opt)
 
-als.so: smtsynth.o smt_utils.o yosys_utils.o als.o graph.o optimizer.o
-	$(yosys-build-command) $@ $^ $(libs) $(opt)
+als.so: smtsynth.o smt_utils.o yosys_utils.o als.o graph.o optimizer.o optimizer_utils.o
+	$(yosys-build-command) $@ $^ $(libs) -L/usr/local/lib64 -leo -lmoeo -leoutils $(opt)
 
 clean:
 	rm -rf *.so *.dSYM *.d *.o

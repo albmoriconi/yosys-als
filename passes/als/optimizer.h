@@ -38,7 +38,7 @@ namespace yosys_als {
      * @return
      */
     int als_optimizer_moeo(Yosys::Module *module,
-            const Yosys::dict<Yosys::Const, std::vector<mig_model_t>> &synthesized_luts);
+            Yosys::dict<Yosys::Const, std::vector<mig_model_t>> &synthesized_luts);
 
 }
 
