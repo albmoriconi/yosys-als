@@ -32,10 +32,10 @@ USING_YOSYS_NAMESPACE
 
 namespace yosys_als {
 
-    Graph graph_from_module(Module *const module) {
-        Graph g;
+    graph_t graph_from_module(Module *const module) {
+        graph_t g;
         SigMap sigmap(module);
-        dict<IdString, Vertex> vertex_map;
+        dict<IdString, vertex_d> vertex_map;
         dict<SigBit, Cell*> driver_of;
 
         // Iterate on cells, add them as vertices, build driver index
@@ -53,8 +53,8 @@ namespace yosys_als {
         }
 
         // Add driver -> driven cell edges
-        boost::optional<Vertex> zero_v = boost::none;
-        boost::optional<Vertex> one_v = boost::none;
+        boost::optional<vertex_d> zero_v = boost::none;
+        boost::optional<vertex_d> one_v = boost::none;
         for (auto cell : module->cells()) {
             size_t conn_idx = 0;
 
@@ -65,7 +65,7 @@ namespace yosys_als {
                     for (auto &sig : sigmap(conn.second)) {
                         // Check if signal has driver (i.e. not a PI)
                         auto driver = driver_of.find(sig);
-                        Edge e;
+                        edge_d e;
                         bool b;
 
                         if (driver != driver_of.end()) {

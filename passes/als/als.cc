@@ -25,7 +25,7 @@
  */
 
 #include "smtsynth.h"
-#include "optimizer.h"
+#include "Optimizer.h"
 #include "yosys_utils.h"
 #include "kernel/yosys.h"
 

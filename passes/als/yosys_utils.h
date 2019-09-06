@@ -30,6 +30,9 @@
 
 namespace yosys_als {
 
+    /// Type for the catalogue of synthesized LUTs
+    typedef Yosys::dict<Yosys::Const, std::vector<mig_model_t>> lut_catalogue_t;
+
     /**
      * @brief Wrapper for \c synthesize_lut
      * @param lut The LUT specification
