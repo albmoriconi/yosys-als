@@ -89,9 +89,9 @@ namespace yosys_als {
 
         // Parameters
         // TODO Tweak parameters (e.g. temp = 5*luts, iter = 4*temp)
-        static constexpr double t_0 = 250;
-        static constexpr double alpha = 0.8;
-        static constexpr size_t max_iter = 1000;
+        static constexpr double t_0 = 500;
+        static constexpr double alpha = 0.9;
+        static constexpr size_t max_iter = 2000;
 
         // Private methods
         solution_t empty_solution() const;

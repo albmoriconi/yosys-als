@@ -36,6 +36,7 @@
 #include <Eigen/Dense>
 #include <unsupported/Eigen/KroneckerProduct>
 
+#include <cmath>
 #include <random>
 
 USING_YOSYS_NAMESPACE
@@ -68,6 +69,7 @@ namespace yosys_als {
         solution_t s = empty_solution();
         double t = t_0;
         size_t moved = 0; // TODO Remove when tweaking is complete
+        size_t tried = 0;
         std::uniform_real_distribution<double> chance(0.0, 1.0);
 
         for (size_t i = 0; i < max_iter; i++) {
@@ -78,6 +80,7 @@ namespace yosys_als {
             if (!dominates(c_s, c_s_tick)) {
                 s = std::move(s_tick);
             } else {
+                tried++;
                 if (chance(generator) < accept_probability(c_s, c_s_tick, t)) {
                     s = std::move(s_tick);
                     moved++;
@@ -88,7 +91,7 @@ namespace yosys_als {
         }
 
         // TODO Remove when tweaking is complete
-        log("Moved: %lu\n", moved);
+        log("Moved: %lu/%lu\n", moved, tried);
         log("%s %g %lu\n", to_string(s).c_str(), value(s).first, value(s).second);
 
         return s;
@@ -130,9 +133,13 @@ namespace yosys_als {
         for (auto &el : s) {
             if (s_tick.size() == s.size() - target - 1) {
                 size_t max = luts[get_lut_param(el.first.cell)].size() - 1;
-                size_t decrease = el.second > 0 ? el.second - 1 : 0;
-                size_t increase = el.second < max ? el.second + 1 : max;
-                s_tick[el.first] = coin_flip(generator) == 1 ? increase : decrease;
+                if (max == 0) {
+                    s_tick[el.first] = 0;
+                } else {
+                    size_t decrease = el.second > 0 ? el.second - 1 : el.second + 1;
+                    size_t increase = el.second < max ? el.second + 1 : el.second - 1;
+                    s_tick[el.first] = coin_flip(generator) == 1 ? increase : decrease;
+                }
             } else {
                 s_tick[el.first] = el.second;
             }
@@ -150,11 +157,12 @@ namespace yosys_als {
     }
 
     Optimizer::cost_t Optimizer::cost(const value_t &v) const {
-        return 0.7 * fabs(0.2 - (1.0 - v.first)) + 0.3 * static_cast<double>(v.second) / gates_baseline;
+        double weight = 0.9;
+        return (weight * fabs(0.2 - (1.0 - v.first))) + ((1 - weight) * static_cast<double>(v.second) / gates_baseline);
     }
 
     double Optimizer::accept_probability(const cost_t &c1, const cost_t &c2, double temp) {
-        double cost = c1 - c2;
+        double cost = c2 - c1;
         double prob = std::min<double>(std::max<double>(exp(-cost/temp), 0.0), 1.0);
 
         return prob;
@@ -194,7 +202,7 @@ namespace yosys_als {
     }
 
     Optimizer::z_matrix_t Optimizer::z_in_degree_0(const vertex_d &v) const {
-        Eigen::Matrix2d z_matrix;
+        z_matrix_t z_matrix;
 
         switch (g[v].type) {
             case vertex_t::CONSTANT_ZERO:
