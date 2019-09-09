@@ -30,6 +30,8 @@
 #include "yosys_utils.h"
 #include "kernel/yosys.h"
 
+#include <Eigen/Dense>
+
 #include <random>
 
 namespace yosys_als {
@@ -67,13 +69,23 @@ namespace yosys_als {
         typedef std::pair<double, size_t> value_t;
         typedef double cost_t;
 
+        // Private solution evaluation types
+        typedef Yosys::dict<Yosys::IdString, double> reliability_index_t;
+        typedef Eigen::Matrix2d z_matrix_t;
+        typedef Eigen::MatrixXd matrix_double_t;
+        typedef Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> matrix_bool_t;
+        typedef Yosys::dict<vertex_t, z_matrix_t> z_matrix_index_t;
+
         // Private data
         graph_t g;
         std::vector<vertex_d> vertices;
         lut_catalogue_t &luts;
 
+        // Private solution evaluation data
+        size_t gates_baseline;
+
         // Static members
-        static const std::default_random_engine generator;
+        static std::default_random_engine generator;
 
         // Parameters
         // TODO Tweak parameters (e.g. temp = 5*luts, iter = 4*temp)
@@ -84,13 +96,18 @@ namespace yosys_als {
         // Private methods
         solution_t empty_solution() const;
         solution_t neighbor_of(const solution_t &s) const;
-        bool dominates(const solution_t &s1, const solution_t &s2) const;
+        bool dominates(const cost_t &c1, const cost_t &c2) const;
         value_t value(const solution_t &s) const;
-        cost_t cost(const solution_t &s) const;
-        double accept_probability(const solution_t &s, const solution_t &s_tick, const double temp);
+        cost_t cost(const value_t &v) const;
+        static double accept_probability(const cost_t &c1, const cost_t &c2, double temp);
 
         // Private solution evaluation methods
-        // ...
+        double circuit_reliability(const reliability_index_t &all_the_rels) const;
+        reliability_index_t output_reliability(const solution_t &s) const;
+        z_matrix_t z_in_degree_0(const vertex_d &v) const;
+        z_matrix_t z_in_degree_pos(const solution_t &s, const vertex_d &v, const z_matrix_index_t &z_matrix_for) const;
+        double reliability_from_z(const z_matrix_t &z) const;
+        size_t gates(const solution_t &s) const;
     };
 }
 

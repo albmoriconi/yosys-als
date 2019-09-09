@@ -77,12 +77,11 @@ namespace yosys_als {
 
             // 3. Optimize circuit
             log_header(module->design, "Running approximation heuristic.\n");
-            auto hall_of_fame = optimizer_sa(module, synthesized_luts);
+            auto optimizer = Optimizer(module, synthesized_luts);
 
-            for (auto &choice : hall_of_fame) {
+            for (auto &choice : optimizer()) {
                 std::string s;
                 boost::to_string(synthesized_luts[get_lut_param(choice.first.cell)][choice.second].fun_spec, s);
-                //std::reverse(s.begin(), s.end());
                 choice.first.cell->setParam("\\LUT", Const::from_string(s));
             }
         }

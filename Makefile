@@ -18,15 +18,15 @@ yosys_utils.o: $(als_dir)/yosys_utils.cc $(als_dir)/yosys_utils.h $(als_dir)/smt
 	$(yosys-exec-command) $< -o $@ $(opt)
 
 als.o: $(als_dir)/als.cc $(als_dir)/smtsynth.h $(als_dir)/graph.h $(als_dir)/optimizer.h $(als_dir)/yosys_utils.h $(als_dir)/smt_utils.h
-	$(yosys-exec-command) $< -o $@ $(opt)
+	$(yosys-exec-command) $< -o $@ $(eigen_include) $(opt)
 
 graph.o: $(als_dir)/graph.cc $(als_dir)/graph.h
 	$(yosys-exec-command) $< -o $@ $(opt)
 
-optimizer.o: $(als_dir)/optimizer.cc $(als_dir)/optimizer.h $(als_dir)/smtsynth.h $(als_dir)/smt_utils.h $(als_dir)/graph.h $(als_dir)/yosys_utils.h
+Optimizer.o: $(als_dir)/Optimizer.cc $(als_dir)/optimizer.h $(als_dir)/smtsynth.h $(als_dir)/smt_utils.h $(als_dir)/graph.h $(als_dir)/yosys_utils.h
 	$(yosys-exec-command) $< -o $@ $(eigen_include) $(opt)
 
-als.so: smtsynth.o smt_utils.o yosys_utils.o als.o graph.o optimizer.o
+als.so: smtsynth.o smt_utils.o yosys_utils.o als.o graph.o Optimizer.o
 	$(yosys-build-command) $@ $^ $(libs) $(opt)
 
 clean:
