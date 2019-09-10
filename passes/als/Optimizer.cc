@@ -28,12 +28,10 @@
 #include "Optimizer.h"
 
 #include "graph.h"
-#include "smtsynth.h"
 #include "yosys_utils.h"
 #include "kernel/yosys.h"
 
 #include <boost/graph/topological_sort.hpp>
-#include <Eigen/Dense>
 #include <unsupported/Eigen/KroneckerProduct>
 
 #include <cmath>
@@ -53,12 +51,17 @@ namespace yosys_als {
      * Constructors
      */
 
-    Optimizer::Optimizer(Module *module, lut_catalogue_t &luts) : g(graph_from_module(module)), luts(luts) {
+    Optimizer::Optimizer(Module *module, weights_t &weights, lut_catalogue_t &luts)
+    : g(graph_from_module(module)), sigmap(module), weights(weights), luts(luts) {
         // Create graph and topological ordering
         topological_sort(g, std::back_inserter(vertices));
         std::reverse(vertices.begin(), vertices.end());
+        // Count reliability normalization factor
+        rel_norm = 0.0;
+        for (auto &w : weights)
+            rel_norm += w.second;
         // Count gates baseline
-        gates_baseline = gates(empty_solution());
+        gates_baseline = gates(empty_solution().first);
     }
 
     /*
@@ -66,16 +69,27 @@ namespace yosys_als {
      */
 
     Optimizer::solution_t Optimizer::operator()() {
-        solution_t s = empty_solution();
-        double t = t_0;
+        // Populate starting archive
+        archive_t arch;
+        for (size_t i = 0; i < soft_limit; i++) {
+            archive_entry_t s = hill_climb(empty_solution());
+            if (std::find(arch.begin(), arch.end(), s) == arch.end())
+                arch.push_back(s);
+        }
+
+        for (auto &sol : arch) {
+            log("%s %g %g\n", to_string(sol.first).c_str(), sol.second[0], sol.second[1]);
+        }
+
+        double t = t_max;
         size_t moved = 0; // TODO Remove when tweaking is complete
         size_t tried = 0;
         std::uniform_real_distribution<double> chance(0.0, 1.0);
 
-        for (size_t i = 0; i < max_iter; i++) {
+        /*for (size_t i = 0; i < max_iter; i++) {
             auto s_tick = neighbor_of(s);
-            auto c_s = cost(value(s));
-            auto c_s_tick = cost(value(s_tick));
+            auto c_s = value(s);
+            auto c_s_tick = value(s_tick);
 
             if (!dominates(c_s, c_s_tick)) {
                 s = std::move(s_tick);
@@ -92,9 +106,9 @@ namespace yosys_als {
 
         // TODO Remove when tweaking is complete
         log("Moved: %lu/%lu\n", moved, tried);
-        log("%s %g %lu\n", to_string(s).c_str(), value(s).first, value(s).second);
+        log("%s %g %lu\n", to_string(s).c_str(), value(s)[0], value(s).[1]);*/
 
-        return s;
+        return arch[0].first;
     }
 
     std::string Optimizer::to_string(solution_t &s) const {
@@ -112,7 +126,7 @@ namespace yosys_als {
      * Utility and private methods
      */
 
-    Optimizer::solution_t Optimizer::empty_solution() const {
+    Optimizer::archive_entry_t Optimizer::empty_solution() const {
         solution_t s;
 
         for (auto &v : vertices) {
@@ -120,18 +134,30 @@ namespace yosys_als {
                 s[g[v]] = 0;
         }
 
-        return s;
+        return {s, value(s)};
     }
 
-    Optimizer::solution_t Optimizer::neighbor_of(const solution_t &s) const {
+    Optimizer::archive_entry_t Optimizer::hill_climb(const archive_entry_t &s) const {
+        auto s_climb = s;
+
+        for (size_t i = 0; i < max_iter; i++) {
+            auto s_tick = neighbor_of(s_climb);
+            if (dominates(s_tick, s_climb))
+                s_climb = std::move(s_tick);
+        }
+
+        return s_climb;
+    }
+
+    Optimizer::archive_entry_t Optimizer::neighbor_of(const archive_entry_t &s) const {
         solution_t s_tick;
-        std::uniform_int_distribution<size_t> pos_dist(0, s.size() - 1);
+        std::uniform_int_distribution<size_t> pos_dist(0, s.first.size() - 1);
         std::uniform_int_distribution<size_t> coin_flip(0, 1);
         size_t target = pos_dist(generator);
 
         // Move up or down a random element of the solution
-        for (auto &el : s) {
-            if (s_tick.size() == s.size() - target - 1) {
+        for (auto &el : s.first) {
+            if (s_tick.size() == s.first.size() - target - 1) {
                 size_t max = luts[get_lut_param(el.first.cell)].size() - 1;
                 if (max == 0) {
                     s_tick[el.first] = 0;
@@ -145,28 +171,29 @@ namespace yosys_als {
             }
         }
 
-        return s_tick;
+        return {s_tick, value(s_tick)};
     }
 
-    bool Optimizer::dominates(const cost_t &c1, const cost_t &c2) const {
-        return c1 < c2;
+    bool Optimizer::dominates(const archive_entry_t &s1, const archive_entry_t &s2) const {
+        double arel1 = fabs(arel_bias - s1.second[0]);
+        double arel2 = fabs(arel_bias - s2.second[0]);
+        double gate1 = s1.second[1];
+        double gate2 = s2.second[1];
+
+        return (arel1 <= arel2 && gate1 < gate2) || (arel1 < arel2 && gate1 <= gate2);
     }
 
     Optimizer::value_t Optimizer::value(const solution_t &s) const {
-        return value_t{circuit_reliability(output_reliability(s)), gates(s)};
+        return value_t{1 - circuit_reliability(output_reliability(s)),
+                       static_cast<double>(gates(s)) / gates_baseline};
     }
 
-    Optimizer::cost_t Optimizer::cost(const value_t &v) const {
-        double weight = 0.9;
-        return (weight * fabs(0.2 - (1.0 - v.first))) + ((1 - weight) * static_cast<double>(v.second) / gates_baseline);
-    }
-
-    double Optimizer::accept_probability(const cost_t &c1, const cost_t &c2, double temp) {
+    /*double Optimizer::accept_probability(const cost_t &c1, const cost_t &c2, double temp) {
         double cost = c2 - c1;
         double prob = std::min<double>(std::max<double>(exp(-cost/temp), 0.0), 1.0);
 
         return prob;
-    }
+    }*/
 
     /*
      * Private solution evaluation methods
@@ -175,11 +202,16 @@ namespace yosys_als {
     double Optimizer::circuit_reliability(const reliability_index_t &all_the_rels) const {
         double c_rel = 1.0;
 
-        // FIXME Don't assume all cells go to only one output
-        for (auto &a_rel : all_the_rels)
-            c_rel *= a_rel.second;
+        for (auto &a_rel : all_the_rels) {
+            auto cell = a_rel.first.cell;
 
-        return c_rel;
+            for (auto &conn : cell->connections())
+                if (cell->output(conn.first))
+                    for (auto &bit : sigmap(conn.second))
+                        c_rel *= std::pow(a_rel.second, weights[bit]);
+        }
+
+        return std::pow(c_rel, 1.0 / rel_norm);
     }
 
     Optimizer::reliability_index_t Optimizer::output_reliability(const solution_t &s) const {
@@ -194,7 +226,7 @@ namespace yosys_als {
 
                 // Cells connected to primary outputs
                 if (boost::out_degree(v, g) == 0)
-                    rel[g[v].name] = reliability_from_z(z_matrix_for[g[v]]);
+                    rel[g[v]] = reliability_from_z(z_matrix_for[g[v]]);
             }
         }
 

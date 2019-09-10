@@ -46,6 +46,9 @@ namespace yosys_als {
         /// If \c true, log debug information
         bool debug = false;
 
+        /// Weights for the outputs
+        Optimizer::weights_t weights;
+
         /// Index of the synthesized LUTs
         dict<Const, std::vector<mig_model_t>> synthesized_luts;
 
@@ -77,7 +80,7 @@ namespace yosys_als {
 
             // 3. Optimize circuit
             log_header(module->design, "Running approximation heuristic.\n");
-            auto optimizer = Optimizer(module, synthesized_luts);
+            auto optimizer = Optimizer(module, weights, synthesized_luts);
 
             for (auto &choice : optimizer()) {
                 std::string s;
@@ -100,6 +103,10 @@ namespace yosys_als {
             log("\n");
             log("This command executes an approximate logic synthesis.\n");
             log("\n");
+            log("    -w <signal> <value>\n");
+            log("        set the weight for the output signal to the specified power of two.\n");
+            log("\n");
+            log("\n");
             log("    -d\n");
             log("        enable debug output\n");
             log("\n");
@@ -110,10 +117,17 @@ namespace yosys_als {
             log_push();
 
             AlsWorker worker;
+            std::vector<std::pair<std::string, std::string>> weights;
 
             // TODO Add arguments for specifying input probability
             size_t argidx;
             for (argidx = 1; argidx < args.size(); argidx++) {
+                if (args[argidx] == "-w" && argidx + 2 < args.size()) {
+                    std::string lhs = args[++argidx].c_str();
+                    std::string rhs = args[++argidx].c_str();
+                    weights.emplace_back(lhs, rhs);
+                    continue;
+                }
                 if (args[argidx] == "-d") {
                     worker.debug = true;
                     continue;
@@ -135,6 +149,16 @@ namespace yosys_als {
                     log_cmd_error("Only one top module must be selected.\n");
 
                 top_mod = mods.front();
+            }
+
+            for (auto &w : weights) {
+                RTLIL::SigSpec lhs;
+                if (!RTLIL::SigSpec::parse_sel(lhs, design, top_mod, w.first))
+                    log_cmd_error("Failed to parse lhs weight expression `%s'.\n", w.first.c_str());
+                if (!lhs.is_wire() || !lhs.as_wire()->port_output)
+                    log_cmd_error("Lhs weight expression `%s' not an output.\n", w.first.c_str());
+
+                worker.weights[lhs] = std::stod(w.second);
             }
 
             worker.run(top_mod);
