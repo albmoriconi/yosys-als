@@ -20,6 +20,9 @@
 // [[CITE]] Signal probability for reliability evaluation of logic circuits
 // Denis Teixeira Franco, Maí Correia Vasconcelos, Lirida Naviner, and Jean-François Naviner
 
+// [[CITE]] A Simulated Annealing Based Multi-objective Optimization Algorithm: AMOSA
+// Sanghamitra Bandyopadhyay, Sriparna Saha, Ujjwal Maulik, and Kalyanmoy Deb
+
 /**
  * @file
  * @brief Optimization utility functions for Yosys ALS module
@@ -72,11 +75,14 @@ namespace yosys_als {
         // Populate starting archive
         archive_t arch;
         for (size_t i = 0; i < soft_limit; i++) {
-            archive_entry_t s = hill_climb(empty_solution());
+            // Do a "biased sweep" of the front to augment diversity of initial archive
+            archive_entry_t s = hill_climb(empty_solution(), static_cast<double>(i) / soft_limit);
             if (std::find(arch.begin(), arch.end(), s) == arch.end())
                 arch.push_back(s);
         }
 
+        erase_dominated(arch);
+        log("First glimpse:\n");
         for (auto &sol : arch) {
             log("%s %g %g\n", to_string(sol.first).c_str(), sol.second[0], sol.second[1]);
         }
@@ -85,30 +91,82 @@ namespace yosys_als {
         size_t moved = 0; // TODO Remove when tweaking is complete
         size_t tried = 0;
         std::uniform_real_distribution<double> chance(0.0, 1.0);
+        auto s_curr = arch[0]; // TODO Should we choose randomly and follow AMOSA?
 
-        /*for (size_t i = 0; i < max_iter; i++) {
-            auto s_tick = neighbor_of(s);
-            auto c_s = value(s);
-            auto c_s_tick = value(s_tick);
+        for (size_t i = 0; i < max_iter; i++) { // TODO Try a temperature scheduling approach
+            auto s_tick = neighbor_of(s_curr);
 
-            if (!dominates(c_s, c_s_tick)) {
-                s = std::move(s_tick);
+            if (dominates(s_curr, s_tick)) {
+                double delta_tot = delta_dom(s_curr, s_tick);
+                size_t k = 1;
+                for (auto &s : arch) {
+                    if (dominates(s, s_tick)) {
+                        delta_tot += delta_dom(s, s_tick);
+                        k++;
+                    }
+                }
+
+                if (chance(generator) < accept_probability(delta_tot / k, t))
+                    s_curr = std::move(s_tick);
+            } else if (dominates(s_tick, s_curr)) {
+                std::vector<double> delta_doms;
+                for (auto &s : arch) {
+                    if (dominates(s, s_tick))
+                        delta_doms.push_back(delta_dom(s, s_tick));
+                }
+
+                if (!delta_doms.empty()) {
+                    double delta_min = *std::min_element(delta_doms.begin(), delta_doms.end());
+                    if (chance(generator) < accept_probability(-delta_min, 1))
+                        s_curr = std::move(s_tick);
+                } else {
+                    s_curr = std::move(s_tick);
+                    if (std::find(arch.begin(), arch.end(), s_curr) == arch.end())
+                        arch.push_back(s_curr);
+                    erase_dominated(arch);
+                }
             } else {
-                tried++;
-                if (chance(generator) < accept_probability(c_s, c_s_tick, t)) {
-                    s = std::move(s_tick);
-                    moved++;
+                double delta_tot = 0.0;
+                size_t k = 0;
+                for (auto &s : arch) {
+                    if (dominates(s, s_tick)) {
+                        delta_tot += delta_dom(s, s_tick);
+                        k++;
+                    }
+                }
+
+                if (k > 0) {
+                    if (chance(generator) < accept_probability(delta_tot / k, t))
+                        s_curr = std::move(s_tick);
+                } else {
+                    s_curr = std::move(s_tick);
+                    if (std::find(arch.begin(), arch.end(), s_curr) == arch.end())
+                        arch.push_back(s_curr);
+                    erase_dominated(arch);
                 }
             }
 
-            t = alpha * t;
+            t = cooling * t;
         }
 
         // TODO Remove when tweaking is complete
         log("Moved: %lu/%lu\n", moved, tried);
-        log("%s %g %lu\n", to_string(s).c_str(), value(s)[0], value(s).[1]);*/
+        log("Final archive:\n");
+        for (auto &sol : arch) {
+            log("%s %g %g\n", to_string(sol.first).c_str(), sol.second[0], sol.second[1]);
+        }
 
         return arch[0].first;
+    }
+
+    void Optimizer::erase_dominated(Optimizer::archive_t &arch) const {
+        arch.erase(std::remove_if(arch.begin(), arch.end(), [&](const archive_entry_t &s_tick) {
+            for (auto &s : arch) {
+                if (dominates(s, s_tick))
+                    return true;
+            }
+            return false;
+        }), arch.end());
     }
 
     std::string Optimizer::to_string(solution_t &s) const {
@@ -137,12 +195,12 @@ namespace yosys_als {
         return {s, value(s)};
     }
 
-    Optimizer::archive_entry_t Optimizer::hill_climb(const archive_entry_t &s) const {
+    Optimizer::archive_entry_t Optimizer::hill_climb(const archive_entry_t &s, const double arel_bias) const {
         auto s_climb = s;
 
         for (size_t i = 0; i < max_iter; i++) {
             auto s_tick = neighbor_of(s_climb);
-            if (dominates(s_tick, s_climb))
+            if (dominates(s_tick, s_climb, arel_bias))
                 s_climb = std::move(s_tick);
         }
 
@@ -174,7 +232,7 @@ namespace yosys_als {
         return {s_tick, value(s_tick)};
     }
 
-    bool Optimizer::dominates(const archive_entry_t &s1, const archive_entry_t &s2) const {
+    bool Optimizer::dominates(const archive_entry_t &s1, const archive_entry_t &s2, const double arel_bias) const {
         double arel1 = fabs(arel_bias - s1.second[0]);
         double arel2 = fabs(arel_bias - s2.second[0]);
         double gate1 = s1.second[1];
@@ -187,13 +245,6 @@ namespace yosys_als {
         return value_t{1 - circuit_reliability(output_reliability(s)),
                        static_cast<double>(gates(s)) / gates_baseline};
     }
-
-    /*double Optimizer::accept_probability(const cost_t &c1, const cost_t &c2, double temp) {
-        double cost = c2 - c1;
-        double prob = std::min<double>(std::max<double>(exp(-cost/temp), 0.0), 1.0);
-
-        return prob;
-    }*/
 
     /*
      * Private solution evaluation methods
@@ -211,7 +262,7 @@ namespace yosys_als {
                         c_rel *= std::pow(a_rel.second, weights[bit]);
         }
 
-        return std::pow(c_rel, 1.0 / rel_norm);
+        return c_rel; //std::pow(c_rel, 1.0 / rel_norm);
     }
 
     Optimizer::reliability_index_t Optimizer::output_reliability(const solution_t &s) const {

@@ -99,15 +99,16 @@ namespace yosys_als {
         static constexpr double t_min = 0.01;
         static constexpr double cooling = 0.9;
         static constexpr size_t max_iter = 200;
-        static constexpr double arel_bias = 0.2;
 
         // Private methods
         archive_entry_t empty_solution() const;
-        archive_entry_t hill_climb(const archive_entry_t &s) const;
+        archive_entry_t hill_climb(const archive_entry_t &s, double arel_bias = 0.0) const;
         archive_entry_t neighbor_of(const archive_entry_t &s) const;
-        bool dominates(const archive_entry_t &s1, const archive_entry_t &s2) const;
+        bool dominates(const archive_entry_t &s1, const archive_entry_t &s2, double arel_bias = 0.0) const;
         value_t value(const solution_t &s) const;
-        //static double accept_probability(const value_t &c1, const value_t &c2, double temp);
+        static inline double accept_probability(double delta_avg, double temp) {
+            return 1.0 / (1.0 + std::exp(delta_avg * temp));
+        }
 
         // Private solution evaluation methods
         double circuit_reliability(const reliability_index_t &all_the_rels) const;
@@ -116,6 +117,16 @@ namespace yosys_als {
         z_matrix_t z_in_degree_pos(const solution_t &s, const vertex_d &v, const z_matrix_index_t &z_matrix_for) const;
         double reliability_from_z(const z_matrix_t &z) const;
         size_t gates(const solution_t &s) const;
+
+        void erase_dominated(archive_t &arch) const;
+        inline double delta_dom(const archive_entry_t &s1, const archive_entry_t &s2) const {
+            double f1 = fabs(s1.second[0] - s2.second[0]);
+            double f2 = fabs(s1.second[1] - s2.second[1]);
+            f1 = f1 != 0.0 ? f1 : 1.0;
+            f2 = f2 != 0.0 ? f2 : 1.0;
+
+            return f1 * f2;
+        }
     };
 }
 
