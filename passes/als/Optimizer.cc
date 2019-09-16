@@ -82,10 +82,10 @@ namespace yosys_als {
         }
 
         erase_dominated(arch);
-        log("First glimpse:\n");
-        for (auto &sol : arch) {
-            log("%s %g %g\n", to_string(sol.first).c_str(), sol.second[0], sol.second[1]);
-        }
+        //log("First glimpse:\n");
+        //for (auto &sol : arch) {
+        //    log("%s %g %g\n", to_string(sol.first).c_str(), sol.second[0], sol.second[1]);
+        //}
 
         double t = t_max;
         size_t moved = 0; // TODO Remove when tweaking is complete
@@ -106,8 +106,11 @@ namespace yosys_als {
                     }
                 }
 
-                if (chance(generator) < accept_probability(delta_tot / k, t))
+                tried++;
+                if (chance(generator) < accept_probability(delta_tot / k, t)) {
                     s_curr = std::move(s_tick);
+                    moved++;
+                }
             } else if (dominates(s_tick, s_curr)) {
                 std::vector<double> delta_doms;
                 for (auto &s : arch) {
@@ -116,9 +119,12 @@ namespace yosys_als {
                 }
 
                 if (!delta_doms.empty()) {
+                    tried++;
                     double delta_min = *std::min_element(delta_doms.begin(), delta_doms.end());
-                    if (chance(generator) < accept_probability(-delta_min, 1))
+                    if (chance(generator) < accept_probability(-delta_min, 1)) {
+                        moved++;
                         s_curr = std::move(s_tick);
+                    }
                 } else {
                     s_curr = std::move(s_tick);
                     if (std::find(arch.begin(), arch.end(), s_curr) == arch.end())
@@ -136,8 +142,11 @@ namespace yosys_als {
                 }
 
                 if (k > 0) {
-                    if (chance(generator) < accept_probability(delta_tot / k, t))
+                    tried++;
+                    if (chance(generator) < accept_probability(delta_tot / k, t)) {
                         s_curr = std::move(s_tick);
+                        moved++;
+                    }
                 } else {
                     s_curr = std::move(s_tick);
                     if (std::find(arch.begin(), arch.end(), s_curr) == arch.end())
@@ -150,13 +159,20 @@ namespace yosys_als {
         }
 
         // TODO Remove when tweaking is complete
-        log("Moved: %lu/%lu\n", moved, tried);
-        log("Final archive:\n");
-        for (auto &sol : arch) {
-            log("%s %g %g\n", to_string(sol.first).c_str(), sol.second[0], sol.second[1]);
-        }
+        //log("Moved: %lu/%lu\n", moved, tried);
+        //log("Final archive:\n");
+        std::sort(arch.begin(), arch.end(), [](const archive_entry_t &a, const archive_entry_t &b) {
+            return a.second[0] < b.second[0];
+        });
+        print_archive(arch);
+        //for (auto &sol : arch) {
+        //    log("%s %g %g\n", to_string(sol.first).c_str(), sol.second[0], sol.second[1]);
+        //}
 
-        return arch[0].first;
+        size_t choice;
+        std::cout << "Please select an entry:\n";
+        std::cin >> choice;
+        return arch[choice].first;
     }
 
     void Optimizer::erase_dominated(Optimizer::archive_t &arch) const {
@@ -169,12 +185,12 @@ namespace yosys_als {
         }), arch.end());
     }
 
-    std::string Optimizer::to_string(solution_t &s) const {
+    std::string Optimizer::to_string(const solution_t &s) const {
         std::string str;
 
         for (auto &v : vertices) {
             if (g[v].type == vertex_t::CELL)
-                str += static_cast<char>(s[g[v]]) + '0';
+                str += static_cast<char>(s.at(g[v])) + '0';
         }
 
         return str;
@@ -246,6 +262,19 @@ namespace yosys_als {
                        static_cast<double>(gates(s)) / gates_baseline};
     }
 
+    void Optimizer::print_archive(const archive_t &arch) const {
+        log(" Solution archive\n");
+        log(" Entry     Chosen LUTs         Arel        Gates\n");
+        log(" ----- --------------- ------------ ------------\n");
+
+        for (size_t i = 0; i < arch.size(); i++) {
+            auto choice_s = to_string(arch[i].first);
+            if (choice_s.size() > 15)
+                choice_s = choice_s.substr(0, 15);
+            log(" %5zu %15s %12g %12g\n", i, choice_s.c_str(), arch[i].second[0], arch[i].second[1]);
+        }
+    }
+
     /*
      * Private solution evaluation methods
      */
@@ -256,10 +285,15 @@ namespace yosys_als {
         for (auto &a_rel : all_the_rels) {
             auto cell = a_rel.first.cell;
 
-            for (auto &conn : cell->connections())
+            for (auto &conn : cell->connections()) {
                 if (cell->output(conn.first))
-                    for (auto &bit : sigmap(conn.second))
-                        c_rel *= std::pow(a_rel.second, weights[bit]);
+                    for (auto &bit : sigmap(conn.second)) {
+                        if (weights.find(bit) != weights.end())
+                            c_rel *= std::pow(a_rel.second, weights[bit]);
+                        else
+                            c_rel *= a_rel.second;
+                    }
+            }
         }
 
         return c_rel; //std::pow(c_rel, 1.0 / rel_norm);

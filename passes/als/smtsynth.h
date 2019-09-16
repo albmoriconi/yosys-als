@@ -50,10 +50,10 @@ namespace yosys_als {
         size_t num_gates;
 
         /// Variables in the model
-        std::vector<std::array<size_t, 3>> s;
+        std::vector<std::array<size_t, 2>> s;
 
         /// Polarities of variables in the model
-        std::vector<std::array<bool, 3>> p;
+        std::vector<std::array<bool, 2>> p;
 
         /// Output variable
         size_t out;

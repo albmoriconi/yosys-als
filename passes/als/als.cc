@@ -52,6 +52,56 @@ namespace yosys_als {
         /// Index of the synthesized LUTs
         dict<Const, std::vector<mig_model_t>> synthesized_luts;
 
+        void replace_lut(Module *const module, Cell *const lut, const mig_model_t &mig) {
+            // Vector of variables in the model
+            std::array<SigSpec, 2> vars;
+            vars[1].append(State::S0);
+
+            // Get LUT ins and outs
+            SigSpec lut_out;
+            for (auto &conn : lut->connections()) {
+                if (lut->input(conn.first))
+                    vars[1].append(conn.second);
+                else if (lut->output(conn.first))
+                    lut_out = conn.second;
+            }
+
+            // Create AND gates
+            std::array<std::vector<Wire *>, 2> and_ab;
+            for (size_t i = 0; i < mig.num_gates; i++) {
+                Wire *and_a = module->addWire(NEW_ID);
+                Wire *and_b = module->addWire(NEW_ID);
+                Wire *and_y = module->addWire(NEW_ID);
+                module->addAndGate(NEW_ID, and_a, and_b, and_y);
+                and_ab[0].push_back(and_a);
+                and_ab[1].push_back(and_b);
+                vars[1].append(and_y);
+            }
+
+            // Negate variables
+            for (auto &sig : vars[1]) {
+                Wire *not_y = module->addWire(NEW_ID);
+                module->addNotGate(NEW_ID, sig, not_y);
+                vars[0].append(not_y);
+            }
+
+            // Create connections
+            assert(GetSize(and_ab[0]) == GetSize(and_ab[1]));
+            assert(GetSize(vars[0]) == GetSize(vars[1]));
+            for (int i = 0; i < GetSize(and_ab[0]); i++) {
+                for (int c = 0; c < GetSize(and_ab); c++) {
+                    int g_idx = mig.num_inputs + i;
+                    int p = mig.p[g_idx][c];
+                    int s = mig.s[g_idx][c];
+                    module->connect(and_ab[c][i], vars[p][s]);
+                }
+            }
+            module->connect(lut_out, vars[mig.out_p][mig.out]);
+
+            // Delete LUT
+            module->remove(lut);
+        }
+
         /**
          * Runs an ALS step on selected module
          * @param module A module
@@ -81,11 +131,8 @@ namespace yosys_als {
             // 3. Optimize circuit
             log_header(module->design, "Running approximation heuristic.\n");
             auto optimizer = Optimizer(module, weights, synthesized_luts);
-
-            for (auto &choice : optimizer()) {
-                std::string s;
-                boost::to_string(synthesized_luts[get_lut_param(choice.first.cell)][choice.second].fun_spec, s);
-                choice.first.cell->setParam("\\LUT", Const::from_string(s));
+            for (auto &sub : optimizer()) {
+                replace_lut(module, sub.first.cell, synthesized_luts[get_lut_param(sub.first.cell)][sub.second]);
             }
         }
     };

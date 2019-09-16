@@ -68,7 +68,7 @@ namespace yosys_als {
          * @param s A solution
          * @return A string representation of the solution
          */
-        std::string to_string(solution_t &s) const;
+        std::string to_string(const solution_t &s) const;
 
     private:
         // Private solution evaluation types
@@ -95,10 +95,10 @@ namespace yosys_als {
         // Parameters
         // TODO Tweak parameters (e.g. temp = 5*luts, iter = 4*temp, ...)
         static constexpr size_t soft_limit = 20;
-        static constexpr double t_max = 500;
+        static constexpr double t_max = 1500;
         static constexpr double t_min = 0.01;
         static constexpr double cooling = 0.9;
-        static constexpr size_t max_iter = 200;
+        static constexpr size_t max_iter = 2500;
 
         // Private methods
         archive_entry_t empty_solution() const;
@@ -109,6 +109,7 @@ namespace yosys_als {
         static inline double accept_probability(double delta_avg, double temp) {
             return 1.0 / (1.0 + std::exp(delta_avg * temp));
         }
+        void print_archive(const archive_t &arch) const;
 
         // Private solution evaluation methods
         double circuit_reliability(const reliability_index_t &all_the_rels) const;
