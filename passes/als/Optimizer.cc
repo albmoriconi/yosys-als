@@ -170,7 +170,7 @@ namespace yosys_als {
         //}
 
         size_t choice;
-        std::cout << "Please select an entry:\n";
+        std::cout << "Please select an entry: ";
         std::cin >> choice;
         return arch[choice].first;
     }
@@ -214,7 +214,7 @@ namespace yosys_als {
     Optimizer::archive_entry_t Optimizer::hill_climb(const archive_entry_t &s, const double arel_bias) const {
         auto s_climb = s;
 
-        for (size_t i = 0; i < max_iter; i++) {
+        for (size_t i = 0; i < max_iter/10; i++) {
             auto s_tick = neighbor_of(s_climb);
             if (dominates(s_tick, s_climb, arel_bias))
                 s_climb = std::move(s_tick);
