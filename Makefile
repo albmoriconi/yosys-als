@@ -30,6 +30,6 @@ als.so: smtsynth.o smt_utils.o yosys_utils.o als.o graph.o Optimizer.o
 	$(yosys-build-command) $@ $^ $(libs) $(opt)
 
 clean:
-	rm -rf *.so *.dSYM *.d *.o
+	rm -rf *.so *.dSYM *.d *.o *.tmp
 
 .PHONY: clean
