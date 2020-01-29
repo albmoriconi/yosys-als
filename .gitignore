@@ -4,7 +4,6 @@
 *.dSYM
 *.d
 *.ys
-CMakeLists.txt
 .idea
 cmake-build-debug
 dbcreate/cmake-build-debug
