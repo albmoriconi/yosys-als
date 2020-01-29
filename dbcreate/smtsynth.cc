@@ -32,7 +32,6 @@
 #include <boost/dynamic_bitset.hpp>
 #include <boost/optional.hpp>
 
-#include <iostream>
 #include <array>
 #include <vector>
 

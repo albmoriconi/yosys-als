@@ -7,3 +7,5 @@
 CMakeLists.txt
 .idea
 cmake-build-debug
+dbcreate/cmake-build-debug
+dbcreate/cmake-build-release
