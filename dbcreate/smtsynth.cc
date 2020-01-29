@@ -180,6 +180,7 @@ namespace yosys_als {
      * @param out_distance The maximum hamming distance of the synthesized function
      */
     void assume_function_semantics(const smt_context_t &ctx) {
+        // Polarity is ignored a.t.m. - Only synthesize normal functions
         if (ctx.out_distance == 0) {
             // Exact semantics
             for (size_t t = 0; t < ctx.fun_spec.size(); t++) {
@@ -305,6 +306,17 @@ namespace yosys_als {
                     }
                 }
             }
+
+            // Simmetry breaking - Structural hashing
+            /*for (size_t j = 0; j < i_gates; j++) {
+                auto s_hash_0 = boolector_ne(ctx.btor, ctx.s[0][j], ctx.s[0][i_gates]);
+                auto s_hash_1 = boolector_ne(ctx.btor, ctx.s[1][j], ctx.s[1][i_gates]);
+                auto s_hash = boolector_or(ctx.btor, s_hash_0, s_hash_1);
+                auto p_hash_0 = boolector_ne(ctx.btor, ctx.p[0][j], ctx.p[0][i_gates]);
+                auto p_hash_1 = boolector_ne(ctx.btor, ctx.p[1][j], ctx.p[1][i_gates]);
+                auto p_hash = boolector_or(ctx.btor, p_hash_0, p_hash_1);
+                boolector_assert(ctx.btor, boolector_or(ctx.btor, s_hash, p_hash));
+            }*/
 
             // Update function semantics
             assume_function_semantics(ctx);
