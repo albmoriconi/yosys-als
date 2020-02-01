@@ -87,7 +87,6 @@ int main(int argc, char *argv[]) {
 
     std::vector<std::thread> threads;
     std::mutex print_mutex;
-    std::condition_variable all_spawned;
 
     for (size_t t = 0; t < n_threads; t++) {
         size_t db_slice = db_size / n_threads;
@@ -98,18 +97,18 @@ int main(int argc, char *argv[]) {
         std::cout << "\nSpawning thread " << t << "\n";
         std::cout << "Entries: [" << t_start << "..." << t_end - 1 << "]" << "\n";
 
-        threads.emplace_back([t, t_start, t_end, spec_bits, &print_mutex, &database]() {
+        threads.emplace_back([t, t_start, t_end, db_start, spec_bits, &print_mutex, &database]() {
             print_mutex.lock();
             print_mutex.unlock();
             for (size_t i = t_start; i < t_end; i++) {
                 auto spec = boost::dynamic_bitset<>(spec_bits, i);
-                database[i] = yosys_als::synthesize_lut(spec, 0);
+                database[i - db_start] = yosys_als::synthesize_lut(spec, 0);
 
                 std::string spec_s;
                 boost::to_string(spec, spec_s);
                 print_mutex.lock();
                 std::cout << "\nThread " << t << ": ";
-                std::cout << spec_s << " done with " << database[i].num_gates << " gates";
+                std::cout << spec_s << " done with " << database[i - db_start].num_gates << " gates";
                 print_mutex.unlock();
             }
         });
