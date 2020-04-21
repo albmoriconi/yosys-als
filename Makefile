@@ -3,7 +3,7 @@ yosys-exec-command = $(yosys-config) --exec --cxx --cxxflags -c
 yosys-build-command = $(yosys-config) --build
 als_dir = passes/als
 boolector_include = -I/boolector/src
-link_boolector = -L/boolector/build/lib -lboolector
+link_boolector = -L/boolector/build/lib -Wl,-rpath=/boolector/build/lib -lboolector
 eigen_include = -I/usr/include/eigen3
 yosys_include = -I/yosys
 opt = -O0 $(eigen_include) $(boolector_include) $(yosys_include)

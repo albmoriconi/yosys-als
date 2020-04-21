@@ -1,0 +1,7 @@
+# Read Verilog source
+read_verilog -sv mult_2_bit.sv
+hierarchy -check -top mult_2_bit
+
+# Approximate logic synthesis
+splitnets -ports
+als -d
