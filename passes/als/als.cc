@@ -159,6 +159,12 @@ namespace yosys_als {
             log("\n");
         }
 
+		/**
+		 * @brief This is the plug-in entry point.
+		 * 
+		 * @param args 
+		 * @param design 
+		 */
         void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE {
             log_header(design, "Executing ALS pass (approximate logic synthesis).\n");
             log_push();
