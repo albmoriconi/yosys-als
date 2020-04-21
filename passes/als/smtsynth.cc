@@ -28,7 +28,7 @@
 #include "smtsynth.h"
 #include "smt_utils.h"
 
-#include <boolector/boolector.h>
+#include "boolector.h"
 #include <boost/dynamic_bitset.hpp>
 #include <boost/optional.hpp>
 
@@ -214,14 +214,14 @@ namespace yosys_als {
      * Exposed functions and procedures
      */
 
-    mig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, const unsigned int out_distance) {
+    aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, const unsigned int out_distance) {
         if (fun_spec.empty() || !is_power_of_2(fun_spec.size()))
             throw std::invalid_argument("Function specification is invalid.");
 
         auto num_vars = ceil_log2(fun_spec.size());
 
         // Variables for constant 0 and PIs
-        mig_model_t mig;
+        aig_model_t mig;
         mig.num_inputs = num_vars + 1;
         for (size_t i = 0; i < num_vars + 1; i++) {
             mig.s.emplace_back(std::array<size_t, 2>{i, i});

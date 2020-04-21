@@ -39,7 +39,7 @@ namespace yosys_als {
      * The first input is always the constant zero.
      * The output of the last entry of \c s is the MIG primary output.
      */
-    struct mig_model_t {
+    struct aig_model_t {
         /// Synthesized function specification
         boost::dynamic_bitset<> fun_spec;
 
@@ -68,7 +68,7 @@ namespace yosys_als {
      * @param out_distance The maximum hamming distance of the synthesized function
      * @return The synthesized AIG model
      */
-    mig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, unsigned int out_distance);
+    aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, unsigned int out_distance);
 } // namespace yosys_als
 
 #endif //YOSYS_ALS_SMTSYNTH_H

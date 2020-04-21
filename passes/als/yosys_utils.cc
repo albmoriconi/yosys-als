@@ -30,7 +30,7 @@ USING_YOSYS_NAMESPACE
 
 namespace yosys_als {
 
-    mig_model_t synthesize_lut(const Const &lut, unsigned int out_distance, bool debug) {
+    aig_model_t synthesize_lut(const Const &lut, unsigned int out_distance, bool debug) {
         if (debug)
             log("%s @delta%d... ", lut.as_string().c_str(), out_distance);
 

@@ -9,3 +9,11 @@
 cmake-build-debug
 dbcreate/cmake-build-debug
 dbcreate/cmake-build-release
+build/
+obj/
+lib/
+.vscode/
+doc/
+*.srctrlbm
+*.srctrldb
+*.srctrlprj

@@ -50,7 +50,7 @@ namespace yosys_als {
         Optimizer::weights_t weights;
 
         /// Index of the synthesized LUTs
-        dict<Const, std::vector<mig_model_t>> synthesized_luts;
+        dict<Const, std::vector<aig_model_t>> synthesized_luts;
 
         void replace_lut(Module *const module, Cell *const lut, const mig_model_t &mig) {
             // Vector of variables in the model
@@ -117,7 +117,7 @@ namespace yosys_als {
                     const auto &fun_spec = get_lut_param(cell);
 
                     if (synthesized_luts.find(fun_spec) == synthesized_luts.end()) {
-                        synthesized_luts[fun_spec] = std::vector<mig_model_t>{synthesize_lut(fun_spec, 0, debug)};
+                        synthesized_luts[fun_spec] = std::vector<aig_model_t>{synthesize_lut(fun_spec, 0, debug)};
 
                         size_t dist = 1;
                         while (synthesized_luts[fun_spec].back().num_gates > 0) {
