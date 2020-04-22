@@ -25,8 +25,14 @@
 #ifndef YOSYS_ALS_YOSYS_UTILS_H
 #define YOSYS_ALS_YOSYS_UTILS_H
 
-#include "smtsynth.h"
+#include "aig_model.h"
 #include "kernel/yosys.h"
+
+/**
+ * @defgroup yosys-utils Yosys Utils
+ * @{
+ * @brief Miscellaneous utilities for Yosys
+ */
 
 namespace yosys_als {
 
@@ -35,14 +41,17 @@ namespace yosys_als {
 
     /**
      * @brief Wrapper for \c synthesize_lut
+	 * 
      * @param lut The LUT specification
      * @param out_distance The approximation degree
+	 * @param debug debug
      * @return The synthesized AIG model
      */
     aig_model_t synthesize_lut(const Yosys::Const &lut, unsigned int out_distance, bool debug);
 
     /**
-     * Checks if cell is a LUT
+     * @brief Checks if cell is a LUT
+	 * 
      * @param cell A cell
      * @return \c true if the cell is a LUT, otherwise \c false
      */
@@ -51,13 +60,18 @@ namespace yosys_als {
     }
 
     /**
-     * Gets the value of the \c LUT parameter of a cell, i.e. its specification
+     * @brief Gets the specification of a \c LUT cell
+	 * 
      * @param cell A cell
-     * @return The value of the \c LUT parameter of the cell
+     * @return The specification of the \c LUT cell
      */
     static constexpr const Yosys::Const &get_lut_param(const Yosys::Cell *const cell) {
         return cell->getParam("\\LUT");
     }
 }
+
+/**
+ * @}
+ */
 
 #endif //YOSYS_ALS_YOSYS_UTILS_H

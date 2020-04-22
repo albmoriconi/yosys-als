@@ -66,12 +66,12 @@ namespace yosys_als {
         if (i == 0)
             return false;
 
-        return t % (1u << i) >= (1u << (i - 1));
+        return t % (1u << i) >= (1u << (i - 1)); //? t & ~((1u << i)-1) > 0 ? true : false
     }
 
     /**
      * @brief Return a column of the truth table
-     * @param col The number of the column
+     * @param i The number of the column
      * @param num_vars The number of variables
      * @param p The polarity of the column
      * @return The column of the truth table (column 0 is all 0s)

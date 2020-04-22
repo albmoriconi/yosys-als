@@ -26,6 +26,7 @@
 #define YOSYS_ALS_SMTSYNTH_H
 
 #include <boost/dynamic_bitset.hpp>
+#include <boost/optional.hpp>
 
 #include <array>
 #include <string>
@@ -34,41 +35,58 @@
 namespace yosys_als {
 
     /**
-     * @brief An MIG model
-     * The first \c num_inputs entries of \c s are the MIG primary inputs.
+     * @brief AIG model
+	 * 
+     * The first \c num_inputs entries of \c s are the AIG primary inputs.
      * The first input is always the constant zero.
-     * The output of the last entry of \c s is the MIG primary output.
+     * The output of the last entry of \c s is the AIG primary output.
      */
     struct aig_model_t {
-        /// Synthesized function specification
+		
+		/// Synthesized function specification
         boost::dynamic_bitset<> fun_spec;
 
         /// Number of inputs to the model
         size_t num_inputs;
 
-        /// Number of gates in the model
+        ///Number of gates in the model
         size_t num_gates;
 
-        /// Variables in the model
+        /**
+         * @brief Nodes in the AIG
+         * 
+		 * @details
+		 * Each element of the \a s vector is the set of AIG nodes (actually 
+		 * two) that constitute the inputs of a given node of the same AIG.
+		 * If element 5 is (2,3), it means that node 2 and 3 are placed in input
+		 * to the node 5.
+         */
         std::vector<std::array<size_t, 2>> s;
 
-        /// Polarities of variables in the model
+        /**
+         * @brief Edges connecting nodes in the AIG
+         * 
+		 * @details
+		 * Each element of the \a p vector is the set of AIG edges (actually 
+		 * two) that connects the input nodes to a given node of the same AIG.
+		 * 
+		 * Consider the vector \a s: if element 5 of \a s is (2,3) and element 5
+		 * of \a p is (true,false), it means that node 2 and 3 have \a normal
+		 * and \a complemented polarity, respectively.
+         */
         std::vector<std::array<bool, 2>> p;
 
-        /// Output variable
+        ///? Output variable index
         size_t out;
 
         /// Polarity of the output
         bool out_p;
+
     };
 
-    /**
-     * @brief SMT AIG exact synthesis for given function specification
-     * @param fun_spec The function specification
-     * @param out_distance The maximum hamming distance of the synthesized function
-     * @return The synthesized AIG model
-     */
     aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, unsigned int out_distance);
+    
+	boost::optional<size_t> single_var(const boost::dynamic_bitset<> &fun_spec, const unsigned int out_distance);
 } // namespace yosys_als
 
 #endif //YOSYS_ALS_SMTSYNTH_H

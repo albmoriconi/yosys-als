@@ -26,7 +26,7 @@
 #define YOSYS_ALS_OPTIMIZER_H
 
 #include "graph.h"
-#include "smtsynth.h"
+#include "aig_model.h"
 #include "yosys_utils.h"
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
@@ -53,6 +53,7 @@ namespace yosys_als {
         /**
          * @brief Constructs an optimizer
          * @param module A module
+		 * @param weights weights
          * @param luts The lut catalogue for the model
          */
         Optimizer(Yosys::Module *module, weights_t &weights, lut_catalogue_t &luts);

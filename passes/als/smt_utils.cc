@@ -45,6 +45,14 @@ namespace yosys_als {
 #endif
     }
 
+	/**
+	 * @brief 
+	 * 
+	 * @param i 
+	 * @param num_vars 
+	 * @param p 
+	 * @return boost::dynamic_bitset<> 
+	 */
     boost::dynamic_bitset<> truth_table_column(const size_t i, const size_t num_vars, const bool p) {
         boost::dynamic_bitset<> bs(1u << num_vars);
 
@@ -54,6 +62,13 @@ namespace yosys_als {
         return bs;
     }
 
+	/**
+	 * @brief Computes the Hamming distance between two bit vectors.
+	 * 
+	 * @param bs1 bit vector
+	 * @param bs2 bit vector
+	 * @return size_t Hamming distance between \a bs1 and \a bs2.
+	 */
     size_t hamming_distance(const boost::dynamic_bitset<> &bs1, const boost::dynamic_bitset<> &bs2) {
         if (bs1.size() != bs2.size())
             throw std::invalid_argument("Hamming distance undefined for bitsets of different size.");

@@ -24,7 +24,7 @@
 
 #include "yosys_utils.h"
 
-#include "smtsynth.h"
+#include "aig_model.h"
 
 USING_YOSYS_NAMESPACE
 
