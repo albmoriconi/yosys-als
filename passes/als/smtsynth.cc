@@ -1,7 +1,7 @@
 /* -*- c++ -*-
  *  yosys-als -- Approximate logic synthesis
  *
- *  Copyright (C) 2019  Alberto Moriconi <a.moriconi@studenti.unina.it>
+ *  Copyright (C) 2019  Alberto Moriconi <albmoriconi@gmail.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -76,16 +76,16 @@ namespace yosys_als {
         /// The truth table entries
         std::vector<std::vector<BoolectorNode *>> b;
 
-        /// The inputs to the Maj gates
+        /// The inputs to the AND gates
         std::array<std::vector<std::vector<BoolectorNode *>>, 2> a;
 
-        /// The structure of the MIG
+        /// The structure of the AIG
         std::array<std::vector<BoolectorNode *>, 2> s;
 
-        /// The polarities of the Maj gates inputs
+        /// The polarities of the AND gates inputs
         std::array<std::vector<BoolectorNode *>, 2> p;
 
-        /// The output polarity of the MIG
+        /// The output polarity of the AIG
         BoolectorNode *out_p{};
     };
 
@@ -214,27 +214,27 @@ namespace yosys_als {
      * Exposed functions and procedures
      */
 
-    mig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, const unsigned int out_distance) {
+    aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, const unsigned int out_distance) {
         if (fun_spec.empty() || !is_power_of_2(fun_spec.size()))
             throw std::invalid_argument("Function specification is invalid.");
 
         auto num_vars = ceil_log2(fun_spec.size());
 
         // Variables for constant 0 and PIs
-        mig_model_t mig;
-        mig.num_inputs = num_vars + 1;
+        aig_model_t aig;
+        aig.num_inputs = num_vars + 1;
         for (size_t i = 0; i < num_vars + 1; i++) {
-            mig.s.emplace_back(std::array<size_t, 2>{i, i});
-            mig.p.emplace_back(std::array<bool, 2>{true, true});
+            aig.s.emplace_back(std::array<size_t, 2>{i, i});
+            aig.p.emplace_back(std::array<bool, 2>{true, true});
         }
 
         // Single variable
         if (auto sel_var = single_var(fun_spec, out_distance)) {
-            mig.num_gates = 0;
-            mig.out = *sel_var / 2;
-            mig.out_p = *sel_var % 2 == 0;
-            mig.fun_spec = truth_table_column(mig.out, num_vars, mig.out_p);
-            return mig;
+            aig.num_gates = 0;
+            aig.out = *sel_var / 2;
+            aig.out_p = *sel_var % 2 == 0;
+            aig.fun_spec = truth_table_column(aig.out, num_vars, aig.out_p);
+            return aig;
         }
 
         // Initialize solver
@@ -276,21 +276,13 @@ namespace yosys_als {
                 ctx.p[c].push_back(boolector_var(ctx.btor, ctx.bool_sort, nullptr));
             }
             boolector_assert(ctx.btor, boolector_ult(ctx.btor, ctx.s[0][i_gates], ctx.s[1][i_gates]));
-            //boolector_assert(ctx.btor, boolector_ult(ctx.btor, ctx.s[1][i_gates], ctx.s[2][i_gates]));
-            //boolector_assert(ctx.btor, boolector_or(ctx.btor, ctx.p[0][i_gates], ctx.p[1][i_gates]));
-            //boolector_assert(ctx.btor, boolector_or(ctx.btor, ctx.p[0][i_gates], ctx.p[2][i_gates]));
-            //boolector_assert(ctx.btor, boolector_or(ctx.btor, ctx.p[1][i_gates], ctx.p[2][i_gates]));
 
             for (size_t t = 0; t < ctx.fun_spec.size(); t++) {
-                // Maj functionality
+                // AND functionality
                 ctx.b[i].push_back(boolector_var(ctx.btor, ctx.bool_sort, nullptr));
                 for (size_t c = 0; c < ctx.a.size(); c++)
                     ctx.a[c][i_gates].push_back(boolector_var(ctx.btor, ctx.bool_sort, nullptr));
-                //auto maj_prod_1 = boolector_and(ctx.btor, ctx.a[0][i_gates][t], ctx.a[1][i_gates][t]);
-                //auto maj_prod_2 = boolector_and(ctx.btor, ctx.a[0][i_gates][t], ctx.a[2][i_gates][t]);
-                //auto maj_prod_3 = boolector_and(ctx.btor, ctx.a[1][i_gates][t], ctx.a[2][i_gates][t]);
-                //auto maj_sum_1 = boolector_or(ctx.btor, maj_prod_1, maj_prod_2);
-                //auto maj = boolector_or(ctx.btor, maj_sum_1, maj_prod_3);
+
                 auto and_f = boolector_and(ctx.btor, ctx.a[0][i_gates][t], ctx.a[1][i_gates][t]);
                 boolector_assert(ctx.btor, boolector_eq(ctx.btor, ctx.b[i][t], and_f));
 
@@ -311,26 +303,26 @@ namespace yosys_als {
             assume_function_semantics(ctx);
         }
 
-        // Populate the MIG model
+        // Populate the AIG model
         boost::dynamic_bitset<> inc_fun_spec;
         for (size_t i = 0; i < ctx.b.back().size(); i++)
             inc_fun_spec.push_back(smt_context_assignment_bool(
                     ctx, ctx.b.back()[i]) ^ !smt_context_assignment_bool(ctx, ctx.out_p));
-        mig.fun_spec = inc_fun_spec;
+        aig.fun_spec = inc_fun_spec;
 
         for (size_t i = 0; i < ctx.s[0].size(); i++) {
-            mig.s.emplace_back(std::array<size_t, 2>{smt_context_assignment_uint(ctx, ctx.s[0][i]),
+            aig.s.emplace_back(std::array<size_t, 2>{smt_context_assignment_uint(ctx, ctx.s[0][i]),
                                                      smt_context_assignment_uint(ctx, ctx.s[1][i])});
-            mig.p.emplace_back(std::array<bool, 2>{smt_context_assignment_bool(ctx, ctx.p[0][i]),
+            aig.p.emplace_back(std::array<bool, 2>{smt_context_assignment_bool(ctx, ctx.p[0][i]),
                                                    smt_context_assignment_bool(ctx, ctx.p[1][i])});
         }
-        mig.num_gates = mig.s.size() - mig.num_inputs;
-        mig.out = mig.s.size() - 1;
-        mig.out_p = smt_context_assignment_bool(ctx, ctx.out_p);
+        aig.num_gates = aig.s.size() - aig.num_inputs;
+        aig.out = aig.s.size() - 1;
+        aig.out_p = smt_context_assignment_bool(ctx, ctx.out_p);
 
         // Delete solver
         smt_context_delete(ctx);
 
-        return mig;
+        return aig;
     }
 } // namespace yosys_als

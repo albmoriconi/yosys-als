@@ -1,7 +1,7 @@
 /* -*- c++ -*-
  *  yosys-als -- Approximate logic synthesis
  *
- *  Copyright (C) 2019  Alberto Moriconi <a.moriconi@studenti.unina.it>
+ *  Copyright (C) 2019  Alberto Moriconi <albmoriconi@gmail.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -31,7 +31,7 @@
 namespace yosys_als {
 
     /// Type for the catalogue of synthesized LUTs
-    typedef Yosys::dict<Yosys::Const, std::vector<mig_model_t>> lut_catalogue_t;
+    typedef Yosys::dict<Yosys::Const, std::vector<aig_model_t>> lut_catalogue_t;
 
     /**
      * @brief Wrapper for \c synthesize_lut
@@ -39,14 +39,14 @@ namespace yosys_als {
      * @param out_distance The approximation degree
      * @return The synthesized AIG model
      */
-    mig_model_t synthesize_lut(const Yosys::Const &lut, unsigned int out_distance, bool debug);
+    aig_model_t synthesize_lut(const Yosys::Const &lut, unsigned int out_distance, bool debug);
 
     /**
      * Checks if cell is a LUT
      * @param cell A cell
      * @return \c true if the cell is a LUT, otherwise \c false
      */
-    static constexpr bool is_lut(const Yosys::Cell *const cell) {
+    inline bool is_lut(const Yosys::Cell *const cell) {
         return cell->hasParam("\\LUT");
     }
 
@@ -55,7 +55,7 @@ namespace yosys_als {
      * @param cell A cell
      * @return The value of the \c LUT parameter of the cell
      */
-    static constexpr const Yosys::Const &get_lut_param(const Yosys::Cell *const cell) {
+    inline const Yosys::Const &get_lut_param(const Yosys::Cell *const cell) {
         return cell->getParam("\\LUT");
     }
 }

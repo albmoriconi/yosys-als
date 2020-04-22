@@ -1,7 +1,22 @@
+dist: bionic
+
 language: cpp
 
+before_install:
+  - sudo apt-get -y install clang graphviz xdot libboost-system-dev libboost-python-dev libboost-filesystem-dev
+
 install:
-  - sudo apt-get install yosys
+  - sudo apt-get -y install libboost-graph-dev libboost-dev libeigen3-dev
+  - git clone --depth=50 https://github.com/YosysHQ/yosys.git
+  - pushd yosys
+  - make config-gcc && make -j$(nproc) && sudo make install
+  - popd
+  - git clone --depth=50 https://github.com/Boolector/boolector.git
+  - pushd boolector
+  - ./contrib/setup-lingeling.sh
+  - ./contrib/setup-btor2tools.sh
+  - ./configure.sh --shared && cd build && make -j$(nproc) && sudo make install
+  - popd
 
 script:
-  - make
+  - mkdir build && cd build && cmake .. && make -j$(nproc)

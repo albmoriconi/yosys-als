@@ -1,7 +1,7 @@
 /* -*- c++ -*-
  *  yosys-als -- Approximate logic synthesis
  *
- *  Copyright (C) 2019  Alberto Moriconi <a.moriconi@studenti.unina.it>
+ *  Copyright (C) 2019  Alberto Moriconi <albmoriconi@gmail.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -34,12 +34,12 @@
 namespace yosys_als {
 
     /**
-     * @brief An MIG model
-     * The first \c num_inputs entries of \c s are the MIG primary inputs.
+     * @brief An AIG model
+     * The first \c num_inputs entries of \c s are the AIG primary inputs.
      * The first input is always the constant zero.
-     * The output of the last entry of \c s is the MIG primary output.
+     * The output of the last entry of \c s is the AIG primary output.
      */
-    struct mig_model_t {
+    struct aig_model_t {
         /// Synthesized function specification
         boost::dynamic_bitset<> fun_spec;
 
@@ -68,7 +68,7 @@ namespace yosys_als {
      * @param out_distance The maximum hamming distance of the synthesized function
      * @return The synthesized AIG model
      */
-    mig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, unsigned int out_distance);
+    aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, unsigned int out_distance);
 } // namespace yosys_als
 
 #endif //YOSYS_ALS_SMTSYNTH_H

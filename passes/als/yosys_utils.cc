@@ -1,7 +1,7 @@
 /* -*- c++ -*-
  *  yosys-als -- Approximate logic synthesis
  *
- *  Copyright (C) 2019  Alberto Moriconi <a.moriconi@studenti.unina.it>
+ *  Copyright (C) 2019  Alberto Moriconi <albmoriconi@gmail.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -30,7 +30,7 @@ USING_YOSYS_NAMESPACE
 
 namespace yosys_als {
 
-    mig_model_t synthesize_lut(const Const &lut, unsigned int out_distance, bool debug) {
+    aig_model_t synthesize_lut(const Const &lut, unsigned int out_distance, bool debug) {
         if (debug)
             log("%s @delta%d... ", lut.as_string().c_str(), out_distance);
 

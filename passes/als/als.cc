@@ -1,7 +1,7 @@
 /* -*- c++ -*-
  *  yosys-als -- Approximate logic synthesis
  *
- *  Copyright (C) 2019  Alberto Moriconi <a.moriconi@studenti.unina.it>
+ *  Copyright (C) 2019  Alberto Moriconi <albmoriconi@gmail.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -50,9 +50,9 @@ namespace yosys_als {
         Optimizer::weights_t weights;
 
         /// Index of the synthesized LUTs
-        dict<Const, std::vector<mig_model_t>> synthesized_luts;
+        dict<Const, std::vector<aig_model_t>> synthesized_luts;
 
-        void replace_lut(Module *const module, Cell *const lut, const mig_model_t &mig) {
+        void replace_lut(Module *const module, Cell *const lut, const aig_model_t &aig) {
             // Vector of variables in the model
             std::array<SigSpec, 2> vars;
             vars[1].append(State::S0);
@@ -68,7 +68,7 @@ namespace yosys_als {
 
             // Create AND gates
             std::array<std::vector<Wire *>, 2> and_ab;
-            for (size_t i = 0; i < mig.num_gates; i++) {
+            for (size_t i = 0; i < aig.num_gates; i++) {
                 Wire *and_a = module->addWire(NEW_ID);
                 Wire *and_b = module->addWire(NEW_ID);
                 Wire *and_y = module->addWire(NEW_ID);
@@ -90,13 +90,13 @@ namespace yosys_als {
             assert(GetSize(vars[0]) == GetSize(vars[1]));
             for (int i = 0; i < GetSize(and_ab[0]); i++) {
                 for (int c = 0; c < GetSize(and_ab); c++) {
-                    int g_idx = mig.num_inputs + i;
-                    int p = mig.p[g_idx][c];
-                    int s = mig.s[g_idx][c];
+                    int g_idx = aig.num_inputs + i;
+                    int p = aig.p[g_idx][c];
+                    int s = aig.s[g_idx][c];
                     module->connect(and_ab[c][i], vars[p][s]);
                 }
             }
-            module->connect(lut_out, vars[mig.out_p][mig.out]);
+            module->connect(lut_out, vars[aig.out_p][aig.out]);
 
             // Delete LUT
             module->remove(lut);
@@ -117,7 +117,7 @@ namespace yosys_als {
                     const auto &fun_spec = get_lut_param(cell);
 
                     if (synthesized_luts.find(fun_spec) == synthesized_luts.end()) {
-                        synthesized_luts[fun_spec] = std::vector<mig_model_t>{synthesize_lut(fun_spec, 0, debug)};
+                        synthesized_luts[fun_spec] = std::vector<aig_model_t>{synthesize_lut(fun_spec, 0, debug)};
 
                         size_t dist = 1;
                         while (synthesized_luts[fun_spec].back().num_gates > 0) {

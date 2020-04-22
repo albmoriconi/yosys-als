@@ -1,10 +1,31 @@
-cmake_minimum_required(VERSION 3.14)
-project(yosys_als)
+cmake_minimum_required(VERSION 3.12)
+project(yosys-als)
 
 set(CMAKE_CXX_STANDARD 11)
 
-include_directories(/usr/local/share/yosys/include
-        /usr/local/include
-        /usr/local/include/eigen3)
+execute_process(COMMAND yosys-config --cxx OUTPUT_VARIABLE YOSYS_CXX)
+string(STRIP ${YOSYS_CXX} YOSYS_CXX)
+execute_process(COMMAND yosys-config --cxxflags OUTPUT_VARIABLE YOSYS_CXXFLAGS)
+string(STRIP ${YOSYS_CXXFLAGS} YOSYS_CXXFLAGS)
 
-add_executable(yosys_als passes/als/als.cc passes/als/smtsynth.cc passes/als/smtsynth.h passes/als/smt_utils.cc passes/als/smt_utils.h passes/als/yosys_utils.cc passes/als/yosys_utils.h passes/als/graph.cc passes/als/graph.h passes/als/Optimizer.cc passes/als/Optimizer.h)
+set(CMAKE_CXX_COMPILER ${YOSYS_CXX})
+set(CMAKE_CXX_FLAGS ${YOSYS_CXXFLAGS})
+
+find_package(Boost REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(Boolector REQUIRED)
+
+set(TARGET als)
+set(SRC_DIR passes/${TARGET})
+
+add_executable(als
+        ${SRC_DIR}/als.cc
+        ${SRC_DIR}/smtsynth.cc
+        ${SRC_DIR}/smt_utils.cc
+        ${SRC_DIR}/yosys_utils.cc
+        ${SRC_DIR}/graph.cc
+        ${SRC_DIR}/Optimizer.cc)
+
+target_link_libraries(${TARGET} Eigen3::Eigen)
+
+set(CMAKE_CXX_LINK_EXECUTABLE "yosys-config --build ${TARGET}.so <OBJECTS> -lboolector")

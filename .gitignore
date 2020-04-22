@@ -1,11 +1,3 @@
 .DS_Store
-*.tmp
-*.so
-*.o
-*.dSYM
-*.d
-*.ys
-.idea
-cmake-build-debug
-dbcreate/cmake-build-debug
-dbcreate/cmake-build-release
+.idea/
+cmake-build-debug/
