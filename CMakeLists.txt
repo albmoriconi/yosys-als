@@ -18,13 +18,20 @@ find_package(Boolector REQUIRED)
 set(TARGET als)
 set(SRC_DIR passes/${TARGET})
 
-add_executable(als
+add_executable(${TARGET}
         ${SRC_DIR}/als.cc
         ${SRC_DIR}/smtsynth.cc
+        ${SRC_DIR}/smtsynth.h
         ${SRC_DIR}/smt_utils.cc
+        ${SRC_DIR}/smt_utils.h
         ${SRC_DIR}/yosys_utils.cc
+        ${SRC_DIR}/yosys_utils.h
         ${SRC_DIR}/graph.cc
-        ${SRC_DIR}/Optimizer.cc)
+        ${SRC_DIR}/graph.h
+        ${SRC_DIR}/Optimizer.cc
+        ${SRC_DIR}/Optimizer.h
+        ${SRC_DIR}/Evaluator.cc
+        ${SRC_DIR}/Evaluator.h)
 
 target_link_libraries(${TARGET} Eigen3::Eigen)
 

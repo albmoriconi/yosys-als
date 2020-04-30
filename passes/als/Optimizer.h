@@ -31,8 +31,6 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 
-#include <Eigen/Dense>
-
 #include <random>
 
 namespace yosys_als {
@@ -71,13 +69,6 @@ namespace yosys_als {
         std::string to_string(const solution_t &s) const;
 
     private:
-        // Private solution evaluation types
-        typedef Yosys::dict<vertex_t, double> reliability_index_t;
-        typedef Eigen::Matrix2d z_matrix_t;
-        typedef Eigen::MatrixXd matrix_double_t;
-        typedef Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> matrix_bool_t;
-        typedef Yosys::dict<vertex_t, z_matrix_t> z_matrix_index_t;
-
         // Private data
         graph_t g;
         std::vector<vertex_d> vertices;
@@ -110,14 +101,6 @@ namespace yosys_als {
             return 1.0 / (1.0 + std::exp(delta_avg * temp));
         }
         void print_archive(const archive_t &arch) const;
-
-        // Private solution evaluation methods
-        double circuit_reliability(const reliability_index_t &all_the_rels) const;
-        reliability_index_t output_reliability(const solution_t &s) const;
-        z_matrix_t z_in_degree_0(const vertex_d &v) const;
-        z_matrix_t z_in_degree_pos(const solution_t &s, const vertex_d &v, const z_matrix_index_t &z_matrix_for) const;
-        double reliability_from_z(const z_matrix_t &z) const;
-        size_t gates(const solution_t &s) const;
 
         void erase_dominated(archive_t &arch) const;
         inline double delta_dom(const archive_entry_t &s1, const archive_entry_t &s2) const {
