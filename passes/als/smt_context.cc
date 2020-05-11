@@ -1,24 +1,44 @@
 #include "smt_context.h"
 
 namespace yosys_als {
+
 /**
- * @brief Initialize a new SMT solver context
+ * @brief Initialize a new Boolector instance
+ * 
+ * @details
+ * This function creates and configures a ner Boolector SMT. In particular, this
+ * function
+ *  - enables model generation;
+ *  - enables incremental mode;
+ *  - enables auto cleanup of all references held on exit;
+ *  - creates bit-vectors main and boolean sort
+ *  - set the bit-vector constant representing the signed integer true and false
+ *  - adds the output-polarity variable to the smt problem formulation
+ * 
  * @return A context with a new solver
  */
 smt_context_t smt_context_new() {
     smt_context_t ctx;
 
+	// Create a new Boolector instance
     ctx.btor = boolector_new();
+	// Enable model generation
     boolector_set_opt(ctx.btor, BTOR_OPT_MODEL_GEN, 1);
+	// Enable incremental mode. Disabling incremental usage is currently not supported.
     boolector_set_opt(ctx.btor, BTOR_OPT_INCREMENTAL, 1);
+	// Enable auto cleanup of all references held on exit.
     boolector_set_opt(ctx.btor, BTOR_OPT_AUTO_CLEANUP, 1);
 
+	// Create main and Boolean bit-vector sort 
     ctx.bitvec_sort = boolector_bitvec_sort(ctx.btor, bitvec_sort_width);
     ctx.bool_sort = boolector_bitvec_sort(ctx.btor, 1);
 
+	// Create bit-vector constant representing the signed integer true and false
+	// values
     ctx.bool_false = boolector_int(ctx.btor, 0, ctx.bool_sort);
     ctx.bool_true = boolector_int(ctx.btor, 1, ctx.bool_sort);
 
+	// Adding the output-polarity variable to the smt problem formulation
     ctx.out_p = boolector_var(ctx.btor, ctx.bool_sort, nullptr);
 
     return ctx;
@@ -32,8 +52,8 @@ void smt_context_delete(const smt_context_t &ctx) {
 }
 
 /**
- * @brief SMT value for Boolean
- * @return The correct value in SMT context for given Boolean
+ * @brief Translates a C++ bool variable in its STM equivalent
+ * @return The correct value, in the SMT context, for given Boolean
  */
  BoolectorNode *smt_context_bool(const smt_context_t &ctx, const bool val) {
      return val ? ctx.bool_true : ctx.bool_false;
@@ -44,8 +64,18 @@ void smt_context_delete(const smt_context_t &ctx) {
   * @return The assignment as an unsigned integer
   */
  unsigned int smt_context_assignment_uint(const smt_context_t &ctx, BoolectorNode *const node) {
+
+	 // Generate an assignment string for bit-vector expression if 
+	 // boolector_sat() has returned BOOLECTOR_SAT and model generation has been
+	 // enabled. The expression can be an arbitrary bit-vector expression which
+	 // occurs in an assertion or current assumption.
      auto s = boolector_bv_assignment(ctx.btor, node);
+	 
+	 // The string is converted to integer
      auto val = std::stoul(s, nullptr, 2);
+	 
+	 // The assignment string returned from boolector_bv_assignment() has to be
+	 //freed by boolector_free_bv_assignment()
      boolector_free_bv_assignment(ctx.btor, s);
 
      return val;
@@ -56,8 +86,18 @@ void smt_context_delete(const smt_context_t &ctx) {
  * @return The assignment as a Boolean
  */
 bool smt_context_assignment_bool(const smt_context_t &ctx, BoolectorNode *const node) {
+
+	// Generate an assignment string for bit-vector expression if 
+	 // boolector_sat() has returned BOOLECTOR_SAT and model generation has been
+	 // enabled. The expression can be an arbitrary bit-vector expression which
+	 // occurs in an assertion or current assumption.
     auto s = boolector_bv_assignment(ctx.btor, node);
+
+	// The string is converted to bool
     auto val = s[0] == '1';
+
+	// The assignment string returned from boolector_bv_assignment() has to be
+	//freed by boolector_free_bv_assignment()
     boolector_free_bv_assignment(ctx.btor, s);
 
     return val;
@@ -65,9 +105,19 @@ bool smt_context_assignment_bool(const smt_context_t &ctx, BoolectorNode *const 
 
 /**
  * @brief Enforces function semantics for given specification
+ * 
+ * @details
+ * Depending on the maximum allowed Hamming distance between the exact and
+ * approximate specification of the Boolean function, the appropriate constraint
+ * set is added to the SMT instance.
+ * 
+ * @note the maximum allowed Hamming distance between the exact and approximate
+ * specification is a property of the SMT context instance.
+ *  
  * @param ctx The SMT solver context
  */
 void assume_function_semantics(const smt_context_t &ctx) {
+
     if (ctx.out_distance == 0) {
         // Exact semantics
         for (size_t t = 0; t < ctx.fun_spec.size(); t++) {

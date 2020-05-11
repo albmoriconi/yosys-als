@@ -18,8 +18,8 @@
  */
 
 /**
- * @file
- * @brief Generic utility functions for Yosys ALS module
+ * @ingroup smt-context
+ * @{
  */
 
 #ifndef YOSYS_ALS_SMT_UTILS_H
@@ -86,5 +86,9 @@ namespace yosys_als {
      */
     size_t hamming_distance(const boost::dynamic_bitset<> &bs1, const boost::dynamic_bitset<> &bs2);
 } // namespace yosys_als
+
+/**
+ * @}
+ */
 
 #endif //YOSYS_ALS_SMT_UTILS_H

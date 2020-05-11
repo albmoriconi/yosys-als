@@ -10,8 +10,9 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 find_package(Boost REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Boolector REQUIRED)
+find_package(SQLite3 REQUIRED)
 
-set (YOSYS_ROOT		/yosys)
+set (YOSYS_ROOT		${CMAKE_CURRENT_LIST_DIR}/../yosys)
 set (YOSYS_CONFIG	${YOSYS_ROOT}/yosys-config)
 
 execute_process(COMMAND ${YOSYS_CONFIG} --cxx OUTPUT_VARIABLE YOSYS_CXX)
@@ -34,19 +35,22 @@ set (TARGET_SRC		${CMAKE_CURRENT_SOURCE_DIR}/passes/als)
 
 add_library (
 	${TARGET_NAME} SHARED
-	${TARGET_SRC}/als.cc
-	${TARGET_SRC}/graph.cc
-	${TARGET_SRC}/Optimizer.cc
-	${TARGET_SRC}/smt_context.cc
+	${TARGET_SRC}/als_pass.cc
+	${TARGET_SRC}/als_worker.cc
+	${TARGET_SRC}/als_problem.cc
 	${TARGET_SRC}/aig_model.cc
+	${TARGET_SRC}/graph.cc
+	${TARGET_SRC}/smt_context.cc
 	${TARGET_SRC}/smt_utils.cc
 	${TARGET_SRC}/yosys_utils.cc
+	${TARGET_SRC}/lut_catalog.cpp
 )
 
 target_include_directories (
 	${TARGET_NAME}
 	PRIVATE ${Boost_INCLUDE_DIRS}
 	PRIVATE ${YOSYS_ROOT}
+	PRIVATE ${SQLITE3_INCLUDE_DIRS}
 )	
 
 target_link_directories (
@@ -59,6 +63,7 @@ target_link_libraries (
 	${Boost_LIBRARIES}
 	Eigen3::Eigen
 	Boolector::boolector
+	${SQLITE3_LIBRARIES}
 )
 
 target_link_options(

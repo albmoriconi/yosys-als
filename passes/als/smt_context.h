@@ -4,6 +4,11 @@
 #include <boolector/boolector.h>
 #include <boost/dynamic_bitset.hpp>
 
+/**
+ * @defgroup smt-context SMT-context
+ * @{
+ */
+
 namespace yosys_als
 {
 
@@ -37,19 +42,19 @@ namespace yosys_als
         /// Boolean true value
         BoolectorNode *bool_true{};
 
-        /// The truth table entries
+        /// The output of each single node
         std::vector<std::vector<BoolectorNode *>> b;
 
-        /// The inputs to the Maj gates
+        /// The inputs to the and gates
         std::array<std::vector<std::vector<BoolectorNode *>>, 2> a;
 
-        /// The structure of the MIG
+        /// The structure of the AIG
         std::array<std::vector<BoolectorNode *>, 2> s;
 
-        /// The polarities of the Maj gates inputs
+        /// The polarities of the and gates inputs
         std::array<std::vector<BoolectorNode *>, 2> p;
 
-        /// The output polarity of the MIG
+        /// The output polarity of the AIG
         BoolectorNode *out_p{};
     };
 
@@ -66,5 +71,9 @@ namespace yosys_als
 	void assume_function_semantics(const smt_context_t &ctx);
 
 };
+
+/**
+ * @}
+ */
 
 #endif

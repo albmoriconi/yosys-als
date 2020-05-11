@@ -25,12 +25,15 @@
 #ifndef YOSYS_ALS_SMTSYNTH_H
 #define YOSYS_ALS_SMTSYNTH_H
 
+#define AIG_NODE_CHILDREN 2
+
 #include <boost/dynamic_bitset.hpp>
 #include <boost/optional.hpp>
-
+#include "sqlite3.h"
 #include <array>
 #include <string>
 #include <vector>
+#include <fstream>
 
 namespace yosys_als {
 
@@ -61,7 +64,7 @@ namespace yosys_als {
 		 * If element 5 is (2,3), it means that node 2 and 3 are placed in input
 		 * to the node 5.
          */
-        std::vector<std::array<size_t, 2>> s;
+        std::vector<std::array<size_t, AIG_NODE_CHILDREN>> s;
 
         /**
          * @brief Edges connecting nodes in the AIG
@@ -74,13 +77,17 @@ namespace yosys_als {
 		 * of \a p is (true,false), it means that node 2 and 3 have \a normal
 		 * and \a complemented polarity, respectively.
          */
-        std::vector<std::array<bool, 2>> p;
+        std::vector<std::array<bool, AIG_NODE_CHILDREN>> p;
 
-        ///? Output variable index
+        /// Output variable index
         size_t out;
 
         /// Polarity of the output
         bool out_p;
+	
+		friend std::ofstream& operator<<(std::ofstream& os, const aig_model_t& aig);
+		friend std::ifstream& operator>>(std::ifstream& is, aig_model_t& aig);
+    
 
     };
 
