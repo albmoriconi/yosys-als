@@ -13,3 +13,9 @@ doc/
 *.srctrlbm
 *.srctrldb
 *.srctrlprj
+.vscode
+*.code-workspace
+*.swp
+cmake-build-debug
+*.code-workspace
+.idea

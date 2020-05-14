@@ -49,9 +49,9 @@ struct AlsWorker {
     lut_catalog_t catalog;
 
     void run(Yosys::Module *const module);
-	void replace_lut(Yosys::Module *const, Cell *const, const aig_model_t &);
+	void replace_lut(Yosys::Module * const, Cell *const, const aig_model_t &);
 	void generate_report(const std::vector<als_problem_t> &)const;
-    void generate_verilog(const std::vector<als_problem_t> &) const;
+    void generate_verilog(Yosys::Module *module, const std::vector<als_problem_t> &archive);
 };
 
 } // namespace yosys_als

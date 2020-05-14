@@ -75,11 +75,11 @@ void yosys_als::AlsWorker::run(Module *const module)
     // Once the optimization process is completed, Pareto-optimal approximate variants are written in verilog files.
     // Moreover, a report-file, that provides fitness-function values for each variants, is also generated.
 	std::vector<als_problem_t> archive = engine.get_pareto_front();
-    generate_verilog(archive);
+	generate_verilog(module, archive);
     generate_report(archive);
 }
 
-void yosys_als::AlsWorker::replace_lut(Yosys::Module *const module, Cell *const lut, const yosys_als::aig_model_t &aig) {
+void yosys_als::AlsWorker::replace_lut(Yosys::Module * const module, Cell *const lut, const yosys_als::aig_model_t &aig) {
 	// Vector of variables in the model
 	std::array<SigSpec, 2> vars;
 	vars[1].append(State::S0);
@@ -154,12 +154,19 @@ void yosys_als::AlsWorker::generate_report(const std::vector<als_problem_t> &arc
  * @brief Generate a Verilog HDL source file for each Approximate configuration in the archive.
  * @param archive Archive of Pareto-optimal solutions provided by the AMOSA optimization algorithm.
  */
-void yosys_als::AlsWorker::generate_verilog(const std::vector<als_problem_t> &archive) const
+void yosys_als::AlsWorker::generate_verilog(Yosys::Module * const module, const std::vector<als_problem_t> &archive)
 {
     std::vector<yosys_als::als_problem_t>::const_iterator it = archive.cbegin(), end = archive.cend();
     for (unsigned i = 0; it != end; it++)
     {
-        std::string configuration_name = "configuration_" + std::to_string(i) + ".v";
-        // TODO generate Verilog source file for each approximate configuration
+    	// Cloning the module, to generate a new approximate variant leaving the original model unaltered
+    	Yosys::Module ax_module;
+    	module->cloneInto(&ax_module);
+    	for (auto &sub : it->get_solution())
+	    	replace_lut(&ax_module, sub.first.cell, catalog.synthesized_luts[get_lut_param(sub.first.cell)][sub.second]);
+    	
+		// Generate Verilog source file for each approximate configuration
+		std::string cmd_configuration_name = "write_verilog configuration_" + std::to_string(i) + ".v";
+		ScriptPass::call(ax_module.design, cmd_configuration_name.c_str());
     }
 }

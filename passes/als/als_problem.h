@@ -98,6 +98,7 @@ namespace yosys_als
 		void compute_fitness();
 
 		double compute_number_of_gates() const;
+		double compute_error() const;
 	};
 
 }

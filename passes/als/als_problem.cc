@@ -168,6 +168,7 @@ void yosys_als::als_problem_t::compute_fitness()
 {
 	ff_values.erase(ff_values.begin(), ff_values.end());
 	ff_values.push_back(compute_number_of_gates());
+	ff_values.push_back(compute_error());
 }
 
 double yosys_als::als_problem_t::compute_number_of_gates() const
@@ -176,5 +177,9 @@ double yosys_als::als_problem_t::compute_number_of_gates() const
     for (auto &v : internal_representation)
         count += luts_catalog[get_lut_param(v.first.cell)][v.second].num_gates;
 	return (double) count;
+}
+
+double yosys_als::als_problem_t::compute_error() const {
+	return 0;
 }
 
