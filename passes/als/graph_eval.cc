@@ -31,6 +31,7 @@
 
 namespace yosys_als {
 
+    // TODO Evaluate input size only once
     // We bring our topological order to:
     // 1. avoid evaluating it every time
     // 2. have finer control over ensuring it's always the same
@@ -45,10 +46,13 @@ namespace yosys_als {
         size_t curr_input = 0; // ugly, but dynamic_bitset has no iterators
 
         for (auto &v : topological_order) {
-            // Distinguish between primary inputs and all other nodes (i.e. cells)
+            // Distinguish between PIs/constants and all other nodes (i.e. cells)
             if (boost::in_degree(v, graph) == 0) {
                 // Assign input value to vertex (no check on cardinality)
-                cell_value[graph[v]] = input[curr_input++];
+                if (graph[v].type == vertex_t::PRIMARY_INPUT)
+                    cell_value[graph[v]] = input[curr_input++];
+                else // Constant
+                    cell_value[graph[v]] = (graph[v].type == vertex_t::CONSTANT_ONE);
             } else {
                 // Construct the input for the cell
                 auto in_edges = boost::in_edges(v, graph);
