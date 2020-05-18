@@ -8,9 +8,8 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/libs)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 find_package(Boost REQUIRED)
-find_package(Eigen3 REQUIRED)
 find_package(Boolector REQUIRED)
-find_package(SQLite3 REQUIRED)
+find_package(Threads)
 
 set (YOSYS_ROOT		${CMAKE_CURRENT_LIST_DIR}/../yosys)
 set (YOSYS_CONFIG	${YOSYS_ROOT}/yosys-config)
@@ -43,8 +42,10 @@ add_library (
 	${TARGET_SRC}/smt_context.cc
 	${TARGET_SRC}/smt_utils.cc
 	${TARGET_SRC}/yosys_utils.cc
-	${TARGET_SRC}/lut_catalog.cpp
+	${TARGET_SRC}/lut_catalog.cc
+	${TARGET_SRC}/evaluator.cc
 )
+
 
 target_include_directories (
 	${TARGET_NAME}
@@ -61,7 +62,6 @@ target_link_directories (
 target_link_libraries (
 	${TARGET_NAME}
 	${Boost_LIBRARIES}
-	Eigen3::Eigen
 	Boolector::boolector
 	${SQLITE3_LIBRARIES}
 )

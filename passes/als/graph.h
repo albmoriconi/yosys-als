@@ -26,8 +26,10 @@
 #define YOSYS_ALS_GRAPH_H
 
 #include "kernel/yosys.h"
-
+#include "lut_catalog.h"
+#include <boost/dynamic_bitset.hpp>
 #include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/topological_sort.hpp>
 
 namespace yosys_als {
 
@@ -52,21 +54,69 @@ namespace yosys_als {
         size_t signal;
     };
 
-    /// The graph type for topological analysis of the circuit
-    typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, vertex_t, edge_t> graph_t;
+	/// The representation of the graph
+	typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, vertex_t, edge_t> adj_list_t;
+	
+	/// The vertex descriptor type for topological analysis of the circuit
+	typedef boost::graph_traits<adj_list_t>::vertex_descriptor vertex_descriptor_t;
+	
+	/// The edge descriptor type for topological analysis of the circuit
+	typedef boost::graph_traits<adj_list_t>::edge_descriptor edge_descriptor_t;
 
-    /// The vertex descriptor type for topological analysis of the circuit
-    typedef boost::graph_traits<graph_t>::vertex_descriptor vertex_d;
+	typedef Yosys::dict<vertex_t, size_t> ax_configuration_t;
 
-    /// The edge descriptor type for topological analysis of the circuit
-    typedef boost::graph_traits<graph_t>::edge_descriptor edge_d;
+	/// The graph type for topological analysis of the circuit
+	class graph_t
+	{
+		private:
+				
+			/** List of nodes and adjacent nodes */
+			adj_list_t adj_list;
+			
+			/** Vector of graph nodes, in topological order */
+			std::vector<vertex_descriptor_t> ordered_vertices;
+			
+			/** Number of primary input cells */
+			size_t primary_inputs;
 
-    /**
-     * @brief Create a graph with the topological structure of the circuit
-     * @param module A module
-     * @return A graph with the topological structure of the circuit
-     */
-    graph_t graph_from_module(Yosys::Module *module);
+			void from_module(Yosys::Module * const module);
+		
+		public:
+			
+			/** Build an empty graph */
+			graph_t() {}
+			
+			/**
+			 * @brief Create a graph with the topological structure of the circuit
+			 * @param module A module
+			 * @return A graph with the topological structure of the circuit
+			 */
+	    	explicit graph_t(Yosys::Module * const module)
+	    	{
+				from_module(module);
+				boost::topological_sort(adj_list, std::back_inserter(ordered_vertices));
+				std::reverse(ordered_vertices.begin(), ordered_vertices.end());
+			}
+			
+			/// Directly accesses a vertex
+			adj_list_t::vertex_bundled& operator[](adj_list_t::vertex_descriptor v) {return adj_list[v];}
+			
+			/// Directly accesses a vertex
+			const adj_list_t::vertex_bundled& operator[](adj_list_t::vertex_descriptor v) const	{return adj_list[v];}
+			
+			// Direclty accesses an edge
+			adj_list_t::edge_bundled& operator[](adj_list_t::edge_descriptor e)	{ return adj_list[e]; }
+			
+			/// Directly accesses an edge
+			const adj_list_t::edge_bundled& operator[](adj_list_t::edge_descriptor e) const{return adj_list[e];}
+
+			const std::vector<vertex_descriptor_t>& get_ordered_vertices() const {return ordered_vertices;}
+			
+			size_t get_primary_inputs() const {return primary_inputs;}
+			
+			const adj_list_t& get_adj_list() const {return adj_list;}
+	};
+	
 }
 
 #endif //YOSYS_ALS_GRAPH_H

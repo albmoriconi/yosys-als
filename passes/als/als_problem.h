@@ -7,7 +7,9 @@
 #include <memory>
 #include "graph.h"
 #include "aig_model.h"
+#include "evaluator.h"
 #include "yosys_utils.h"
+#include "lut_catalog.h"
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 
@@ -23,13 +25,13 @@ namespace yosys_als
 	{
 	public:
 
-		als_problem_t(graph_t &, std::vector<vertex_d> &, lut_catalogue_t &, bool leave_uninitialized = false);
+		als_problem_t(graph_t &, lut_catalog_t &, evaluator_t&, bool leave_uninitialized = false);
 		
 		als_problem_t(const als_problem_t& als_inst) :
 			internal_representation(als_inst.internal_representation),
 			luts_graph(als_inst.luts_graph),
-			vertices(als_inst.vertices),
 			luts_catalog(als_inst.luts_catalog),
+			evaluator(als_inst.evaluator),
 			ff_values(als_inst.ff_values) 
 			{}
 		
@@ -39,8 +41,8 @@ namespace yosys_als
 			{
 				internal_representation = als_inst.internal_representation;
 				luts_graph = als_inst.luts_graph;
-				vertices = als_inst.vertices;
 				luts_catalog = als_inst.luts_catalog;
+				evaluator = als_inst.evaluator;
 				ff_values = als_inst.ff_values;
 			}
 			return *this;
@@ -69,36 +71,27 @@ namespace yosys_als
 
 		std::string to_string() const;
 		
-		/**
-		 * Internal representation of a solution:
-		 *  - first: the circuit representation, using the AIG structure;
-		 *  - second: the approximation degree
-		 */
-		typedef Yosys::dict<vertex_t, size_t> solution_t;
-
-		solution_t get_solution() const {return internal_representation;}
+		ax_configuration_t get_ax_configuration() const {return internal_representation;}
 		
 	private:
 	
 		/** Internal representation of the solution */
-		Yosys::dict<vertex_t, size_t> internal_representation;
+		ax_configuration_t internal_representation;
 
 		/** Graph of connected LUTS */
 		graph_t &luts_graph;
 
-		/** Array of vertices of luts_graph, in tolopolical order */
-		std::vector<vertex_d> &vertices;
-
 		/** This is the catalog of synthesized luts. It is shared among all the als_problem_t instances */
-		lut_catalogue_t &luts_catalog;
+		lut_catalog_t &luts_catalog;
+
+		/** Evaluator */
+		evaluator_t &evaluator;
 
 		/** Fitness function values for the considered solution */
 		std::vector<double> ff_values;
 		
 		void compute_fitness();
-
 		double compute_number_of_gates() const;
-		double compute_error() const;
 	};
 
 }

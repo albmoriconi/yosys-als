@@ -2,15 +2,15 @@
 #include <random>
 
 
-yosys_als::als_problem_t::als_problem_t(graph_t& graph, std::vector<vertex_d>& verts, lut_catalogue_t &luts, bool leave_uninitialized) :
+yosys_als::als_problem_t::als_problem_t(graph_t& graph, lut_catalog_t &luts, evaluator_t& evaluator, bool leave_uninitialized) :
 	luts_graph(graph),
-	vertices(verts),
-	luts_catalog(luts)
+	luts_catalog(luts),
+	evaluator(evaluator)
 {
 	// TODO Initialize the internal representation
 	if (!leave_uninitialized)
 	{
-		for (auto &v : vertices)
+		for (auto &v : luts_graph.get_ordered_vertices())
 			if (graph[v].type == vertex_t::CELL)
 				internal_representation[graph[v]] = 0;
 		compute_fitness();
@@ -25,7 +25,7 @@ yosys_als::als_problem_t::als_problem_t(graph_t& graph, std::vector<vertex_d>& v
  */
 yosys_als::als_problem_t yosys_als::als_problem_t::neighbor() const
 {
-	als_problem_t new_solution(luts_graph, vertices, luts_catalog, true);
+	als_problem_t new_solution(luts_graph, luts_catalog, evaluator, true);
 	
 	std::default_random_engine rnd_gen{std::random_device{}()};
 	std::uniform_int_distribution<size_t> pos_dist(0, internal_representation.size() - 1);
@@ -158,7 +158,7 @@ double yosys_als::als_problem_t::distance(const als_problem_t & a_solution) cons
 std::string yosys_als::als_problem_t::to_string() const
 {
 	std::string str;
-	for (auto &v : vertices)
+	for (auto &v : luts_graph.get_ordered_vertices())
 		if (luts_graph[v].type == vertex_t::CELL)
 			str += static_cast<char>(internal_representation.at(luts_graph[v])) + '0';
 	return str;
@@ -168,8 +168,13 @@ void yosys_als::als_problem_t::compute_fitness()
 {
 	ff_values.erase(ff_values.begin(), ff_values.end());
 	ff_values.push_back(compute_number_of_gates());
-	ff_values.push_back(compute_error());
+
+	double min, max;
+	evaluator.get_error_frequency(internal_representation, min, max);
+	ff_values.push_back(max);
+	ff_values.push_back(min);
 }
+
 
 double yosys_als::als_problem_t::compute_number_of_gates() const
 {
@@ -178,8 +183,3 @@ double yosys_als::als_problem_t::compute_number_of_gates() const
         count += luts_catalog[get_lut_param(v.first.cell)][v.second].num_gates;
 	return (double) count;
 }
-
-double yosys_als::als_problem_t::compute_error() const {
-	return 0;
-}
-
