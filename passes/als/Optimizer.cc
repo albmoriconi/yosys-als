@@ -87,13 +87,11 @@ namespace yosys_als {
                 arch.push_back(s);
         }
 
-        std::cout << arch.size() << std::endl;
         erase_dominated(arch);
         //log("First glimpse:\n");
         //for (auto &sol : arch) {
         //    log("%s %g %g\n", to_string(sol.first).c_str(), sol.second[0], sol.second[1]);
         //}
-        std::cout << arch.size() << std::endl;
 
         double t = t_max;
         size_t moved = 0; // TODO Remove when tweaking is complete
