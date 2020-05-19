@@ -31,8 +31,6 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 
-#include <Eigen/Dense>
-
 #include <random>
 
 namespace yosys_als {
@@ -71,15 +69,8 @@ namespace yosys_als {
         std::string to_string(const solution_t &s) const;
 
     private:
-        // Private solution evaluation types
-        typedef Yosys::dict<vertex_t, double> reliability_index_t;
-        typedef Eigen::Matrix2d z_matrix_t;
-        typedef Eigen::MatrixXd matrix_double_t;
-        typedef Eigen::Matrix<bool, Eigen::Dynamic, Eigen::Dynamic> matrix_bool_t;
-        typedef Yosys::dict<vertex_t, z_matrix_t> z_matrix_index_t;
-
         // Private data
-        graph_t g;
+        Graph g;
         std::vector<vertex_d> vertices;
         Yosys::SigMap sigmap;
         weights_t &weights;
@@ -88,6 +79,8 @@ namespace yosys_als {
 
         // Private solution evaluation data
         size_t gates_baseline;
+        std::vector<boost::dynamic_bitset<>> test_vectors;
+        std::vector<boost::dynamic_bitset<>> exact_outputs;
 
         // Static members
         static std::default_random_engine generator;
@@ -99,6 +92,7 @@ namespace yosys_als {
         static constexpr double t_min = 0.01;
         static constexpr double cooling = 0.9;
         static constexpr size_t max_iter = 2500;
+        static constexpr size_t test_vectors_n = 1000;
 
         // Private methods
         archive_entry_t empty_solution() const;
@@ -110,14 +104,12 @@ namespace yosys_als {
             return 1.0 / (1.0 + std::exp(delta_avg * temp));
         }
         void print_archive(const archive_t &arch) const;
+        std::vector<boost::dynamic_bitset<>> selection_sample(unsigned long n, unsigned long max);
 
         // Private solution evaluation methods
-        double circuit_reliability(const reliability_index_t &all_the_rels) const;
-        reliability_index_t output_reliability(const solution_t &s) const;
-        z_matrix_t z_in_degree_0(const vertex_d &v) const;
-        z_matrix_t z_in_degree_pos(const solution_t &s, const vertex_d &v, const z_matrix_index_t &z_matrix_for) const;
-        double reliability_from_z(const z_matrix_t &z) const;
+        double circuit_reliability(const solution_t &s) const;
         size_t gates(const solution_t &s) const;
+        boost::dynamic_bitset<> evaluate_graph(const solution_t &s, const boost::dynamic_bitset<> &input) const;
 
         void erase_dominated(archive_t &arch) const;
         inline double delta_dom(const archive_entry_t &s1, const archive_entry_t &s2) const {

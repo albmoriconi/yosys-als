@@ -55,6 +55,12 @@ namespace yosys_als {
     /// The graph type for topological analysis of the circuit
     typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, vertex_t, edge_t> graph_t;
 
+    /// A bundle of a graph with additional informations
+    struct Graph {
+        graph_t g;
+        size_t num_inputs {0};
+    };
+
     /// The vertex descriptor type for topological analysis of the circuit
     typedef boost::graph_traits<graph_t>::vertex_descriptor vertex_d;
 
@@ -66,7 +72,7 @@ namespace yosys_als {
      * @param module A module
      * @return A graph with the topological structure of the circuit
      */
-    graph_t graph_from_module(Yosys::Module *module);
+    Graph graph_from_module(Yosys::Module *module);
 }
 
 #endif //YOSYS_ALS_GRAPH_H

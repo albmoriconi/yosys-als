@@ -17,6 +17,7 @@
  *
  */
 
+// TODO Update bibliography
 // [[CITE]] Signal probability for reliability evaluation of logic circuits
 // Denis Teixeira Franco, Maí Correia Vasconcelos, Lirida Naviner, and Jean-François Naviner
 
@@ -35,7 +36,6 @@
 #include "kernel/yosys.h"
 
 #include <boost/graph/topological_sort.hpp>
-#include <unsupported/Eigen/KroneckerProduct>
 
 #include <cmath>
 #include <random>
@@ -57,7 +57,7 @@ namespace yosys_als {
     Optimizer::Optimizer(Module *module, weights_t &weights, lut_catalogue_t &luts)
     : g(graph_from_module(module)), sigmap(module), weights(weights), luts(luts) {
         // Create graph and topological ordering
-        topological_sort(g, std::back_inserter(vertices));
+        topological_sort(g.g, std::back_inserter(vertices));
         std::reverse(vertices.begin(), vertices.end());
         // Count reliability normalization factor
         rel_norm = 0.0;
@@ -65,6 +65,12 @@ namespace yosys_als {
             rel_norm += w.second;
         // Count gates baseline
         gates_baseline = gates(empty_solution().first);
+        // Create samples
+        size_t total_vectors = 1u << g.num_inputs;
+        test_vectors = selection_sample(test_vectors_n, total_vectors);
+        exact_outputs.reserve(test_vectors.size());
+        for (auto &v : test_vectors)
+            exact_outputs.emplace_back(evaluate_graph(empty_solution().first, v));
     }
 
     /*
@@ -81,11 +87,13 @@ namespace yosys_als {
                 arch.push_back(s);
         }
 
+        std::cout << arch.size() << std::endl;
         erase_dominated(arch);
         //log("First glimpse:\n");
         //for (auto &sol : arch) {
         //    log("%s %g %g\n", to_string(sol.first).c_str(), sol.second[0], sol.second[1]);
         //}
+        std::cout << arch.size() << std::endl;
 
         double t = t_max;
         size_t moved = 0; // TODO Remove when tweaking is complete
@@ -189,8 +197,8 @@ namespace yosys_als {
         std::string str;
 
         for (auto &v : vertices) {
-            if (g[v].type == vertex_t::CELL)
-                str += static_cast<char>(s.at(g[v])) + '0';
+            if (g.g[v].type == vertex_t::CELL)
+                str += static_cast<char>(s.at(g.g[v])) + '0';
         }
 
         return str;
@@ -204,8 +212,8 @@ namespace yosys_als {
         solution_t s;
 
         for (auto &v : vertices) {
-            if (g[v].type == vertex_t::CELL)
-                s[g[v]] = 0;
+            if (g.g[v].type == vertex_t::CELL)
+                s[g.g[v]] = 0;
         }
 
         return {s, value(s)};
@@ -258,7 +266,7 @@ namespace yosys_als {
     }
 
     Optimizer::value_t Optimizer::value(const solution_t &s) const {
-        return value_t{1 - circuit_reliability(output_reliability(s)),
+        return value_t{1 - circuit_reliability(s),
                        static_cast<double>(gates(s)) / gates_baseline};
     }
 
@@ -279,106 +287,41 @@ namespace yosys_als {
      * Private solution evaluation methods
      */
 
-    double Optimizer::circuit_reliability(const reliability_index_t &all_the_rels) const {
-        double c_rel = 1.0;
+    std::vector<boost::dynamic_bitset<>> Optimizer::selection_sample(const unsigned long n,
+            const unsigned long max) {
+        std::uniform_real_distribution<double> U(0.0, 1.0);
+        std::vector<boost::dynamic_bitset<>> sample;
 
-        for (auto &a_rel : all_the_rels) {
-            auto cell = a_rel.first.cell;
-
-            for (auto &conn : cell->connections()) {
-                if (cell->output(conn.first))
-                    for (auto &bit : sigmap(conn.second)) {
-                        if (weights.find(bit) != weights.end())
-                            c_rel *= std::pow(a_rel.second, weights[bit]);
-                        else
-                            c_rel *= a_rel.second;
-                    }
+        if (n >= max) {
+            sample.reserve(max);
+            for (unsigned long t = 0; t < max; t++) {
+                sample.emplace_back(g.num_inputs, t);
+            }
+        } else {
+            sample.reserve(n);
+            for (unsigned long t = 0, m = 0; m < n && t < max; t++) {
+                if ((max - t) * U(generator) < (n - m)) {
+                    sample.emplace_back(g.num_inputs, t);
+                    m++;
+                }
             }
         }
 
-        return c_rel; //std::pow(c_rel, 1.0 / rel_norm);
+        // Don't worry about this return - it is not copied
+        return sample;
     }
 
-    Optimizer::reliability_index_t Optimizer::output_reliability(const solution_t &s) const {
-        reliability_index_t rel;
-        z_matrix_index_t z_matrix_for;
+    double Optimizer::circuit_reliability(const solution_t &s) const {
+        size_t exact = 0;
 
-        for (auto &v : vertices) {
-            if (boost::in_degree(v, g) == 0) {
-                z_matrix_for[g[v]] = z_in_degree_0(v);
-            } else { // Other vertices (i.e. cells)
-                z_matrix_for[g[v]] = z_in_degree_pos(s, v, z_matrix_for);
-
-                // Cells connected to primary outputs
-                if (boost::out_degree(v, g) == 0)
-                    rel[g[v]] = reliability_from_z(z_matrix_for[g[v]]);
+        for (size_t i = 0; i < test_vectors.size(); i++) {
+            if (evaluate_graph(s, test_vectors[i]) == exact_outputs[i]) {
+                exact++;
             }
         }
 
-        return rel;
-    }
-
-    Optimizer::z_matrix_t Optimizer::z_in_degree_0(const vertex_d &v) const {
-        z_matrix_t z_matrix;
-
-        switch (g[v].type) {
-            case vertex_t::CONSTANT_ZERO:
-                z_matrix << 1.0, 0.0, 0.0, 0.0;
-                break;
-            case vertex_t::CONSTANT_ONE:
-                z_matrix << 0.0, 0.0, 0.0, 1.0;
-                break;
-            case vertex_t::PRIMARY_INPUT:
-                z_matrix << 0.5, 0.0, 0.0, 0.5;
-                break;
-            default:
-                throw std::runtime_error("Bad vertex " + g[v].name.str());
-        }
-
-        return z_matrix;
-    }
-
-    Optimizer::z_matrix_t Optimizer::z_in_degree_pos(const solution_t &s, const vertex_d &v,
-            const z_matrix_index_t &z_matrix_for) const {
-        // Get exact and chosen LUT for vertex
-        auto &cell_function = get_lut_param(g[v].cell);
-        auto &lut = luts[cell_function];
-        auto &exact_lut = lut[0];
-        auto &chosen_lut = lut[s.at(g[v])];
-
-        // Get z matrices of the input drivers
-        auto in_edges = boost::in_edges(v, g);
-        std::vector<z_matrix_t> z_inputs(in_edges.second - in_edges.first);
-        std::for_each(in_edges.first, in_edges.second, [&](const edge_d &e) {
-            z_inputs[g[e].signal] = z_matrix_for.at(g[boost::source(e, g)]);
-        });
-
-        // Evaluate I matrix for the cell
-        matrix_double_t big_i = z_inputs[0].replicate(1, 1);
-        std::for_each(z_inputs.begin() + 1, z_inputs.end(), [&](const z_matrix_t &z) {
-           big_i = Eigen::kroneckerProduct(big_i, z).eval();
-        });
-
-        // Evaluate ITM and PTM for the cell
-        if (exact_lut.fun_spec.size() != chosen_lut.fun_spec.size())
-            throw std::runtime_error("Exact and mapped LUT have different input size");
-        matrix_bool_t itm(exact_lut.fun_spec.size(), 2);
-        matrix_bool_t ptm(chosen_lut.fun_spec.size(), 2);
-        for (size_t i = 0; i < exact_lut.fun_spec.size(); i++) {
-            itm(i, 0) = !exact_lut.fun_spec[i];
-            itm(i, 1) = exact_lut.fun_spec[i];
-            ptm(i, 0) = !chosen_lut.fun_spec[i];
-            ptm(i, 1) = chosen_lut.fun_spec[i];
-        }
-
-        // Evaluate output probability according to PTM, sum contributes according to ITM
-        z_matrix_t z_matrix = (big_i * ptm.cast<double>()).transpose() * itm.cast<double>();
-
-        return z_matrix;
-    }
-
-    double Optimizer::reliability_from_z(const z_matrix_t &z) const {
-        return z(0, 0) + z(1, 1);
+        // TODO This is NOT the Hsieh bound - just the expected value
+        return static_cast<double>(exact) / test_vectors.size(); //std::pow(c_rel, 1.0 / rel_norm);
     }
 
     size_t Optimizer::gates(const solution_t &s) const {
@@ -388,6 +331,43 @@ namespace yosys_als {
             count += luts[get_lut_param(v.first.cell)][v.second].num_gates;
 
         return count;
+    }
+
+    boost::dynamic_bitset<> Optimizer::evaluate_graph(const solution_t &s,
+            const boost::dynamic_bitset<> &input) const {
+        Yosys::dict<vertex_t, bool> cell_value;
+        std::string output;
+        size_t curr_input = 0; // ugly, but dynamic_bitset has no iterators
+
+        for (auto &v : vertices) {
+            // Distinguish between PIs/constants and all other nodes (i.e. cells)
+            if (boost::in_degree(v, g.g) == 0) {
+                // Assign input value to vertex (no check on cardinality)
+                if (g.g[v].type == vertex_t::PRIMARY_INPUT)
+                    cell_value[g.g[v]] = input[curr_input++];
+                else // Constant
+                    cell_value[g.g[v]] = (g.g[v].type == vertex_t::CONSTANT_ONE);
+            } else {
+                // Construct the input for the cell
+                auto in_edges = boost::in_edges(v, g.g);
+                std::string cell_input;
+                std::for_each(in_edges.first, in_edges.second, [&](const edge_d &e) {
+                    cell_input += cell_value[g.g[boost::source(e, g.g)]] ? "1" : "0";
+                });
+
+                // Evaluate cell output value from inputs - we only cover the LUT case
+                auto lut_specification = luts.at(get_lut_param(g.g[v].cell))[s.at(g.g[v])].fun_spec;
+                size_t lut_entry = std::stoul(cell_input, nullptr, 2);
+                cell_value[g.g[v]] = lut_specification[lut_entry];
+
+                if (boost::out_degree(v, g.g) == 0) { // Primary outputs
+                    // maybe it's faster to append directly to a bitset? we should profile
+                    output += cell_value[g.g[v]] ? "1" : "0";
+                }
+            }
+        }
+
+        return boost::dynamic_bitset<>(output);
     }
 }
 

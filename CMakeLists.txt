@@ -12,7 +12,6 @@ set(CMAKE_CXX_COMPILER ${YOSYS_CXX})
 set(CMAKE_CXX_FLAGS ${YOSYS_CXXFLAGS})
 
 find_package(Boost REQUIRED)
-find_package(Eigen3 REQUIRED)
 find_package(Boolector REQUIRED)
 
 set(TARGET als)
@@ -33,7 +32,6 @@ add_executable(${TARGET}
         ${SRC_DIR}/graph_eval.cc
         ${SRC_DIR}/graph_eval.h)
 
-target_link_libraries(${TARGET} Eigen3::Eigen)
 target_compile_options(${TARGET} PRIVATE -Wall -Wextra -Wpedantic)
 
 set(CMAKE_CXX_LINK_EXECUTABLE "yosys-config --build ${TARGET}.so <OBJECTS> -lboolector")
