@@ -32,4 +32,5 @@ add_executable(${TARGET}
 
 target_compile_options(${TARGET} PRIVATE -Wall -Wextra -Wpedantic)
 
-set(CMAKE_CXX_LINK_EXECUTABLE "yosys-config --build ${TARGET}.so <OBJECTS> -lboolector")
+set(LIBS "-lboolector -lboost_system -lboost_filesystem")
+set(CMAKE_CXX_LINK_EXECUTABLE "yosys-config --build ${TARGET}.so <OBJECTS> ${LIBS}")

@@ -17,9 +17,8 @@
  *
  */
 
-// TODO Update bibliography
-// [[CITE]] Signal probability for reliability evaluation of logic circuits
-// Denis Teixeira Franco, Maí Correia Vasconcelos, Lirida Naviner, and Jean-François Naviner
+// [[CITE]] An Error-Oriented Test Methodology to Improve Yield with Error-Tolerance
+// Tong-Yu Hsieh, Kuen-Jong Lee, and Melvin A. Breuer
 
 // [[CITE]] A Simulated Annealing Based Multi-objective Optimization Algorithm: AMOSA
 // Sanghamitra Bandyopadhyay, Sriparna Saha, Ujjwal Maulik, and Kalyanmoy Deb
@@ -77,7 +76,7 @@ namespace yosys_als {
      * Public methods
      */
 
-    Optimizer::solution_t Optimizer::operator()() {
+    Optimizer::archive_t Optimizer::operator()() {
         // Populate starting archive
         archive_t arch;
         for (size_t i = 0; i < soft_limit; i++) {
@@ -170,15 +169,11 @@ namespace yosys_als {
         std::sort(arch.begin(), arch.end(), [](const archive_entry_t &a, const archive_entry_t &b) {
             return a.second[0] < b.second[0];
         });
-        print_archive(arch);
         //for (auto &sol : arch) {
         //    log("%s %g %g\n", to_string(sol.first).c_str(), sol.second[0], sol.second[1]);
         //}
 
-        size_t choice;
-        std::cout << "Please select an entry: ";
-        std::cin >> choice;
-        return arch[choice].first;
+        return arch;
     }
 
     void Optimizer::erase_dominated(Optimizer::archive_t &arch) const {
@@ -268,19 +263,6 @@ namespace yosys_als {
                        static_cast<double>(gates(s)) / gates_baseline};
     }
 
-    void Optimizer::print_archive(const archive_t &arch) const {
-        log(" Solution archive\n");
-        log(" Entry     Chosen LUTs         Arel        Gates\n");
-        log(" ----- --------------- ------------ ------------\n");
-
-        for (size_t i = 0; i < arch.size(); i++) {
-            auto choice_s = to_string(arch[i].first);
-            if (choice_s.size() > 15)
-                choice_s = choice_s.substr(0, 15);
-            log(" %5zu %15s %12g %12g\n", i, choice_s.c_str(), arch[i].second[0], arch[i].second[1]);
-        }
-    }
-
     /*
      * Private solution evaluation methods
      */
@@ -318,8 +300,14 @@ namespace yosys_als {
             }
         }
 
-        // TODO This is NOT the Hsieh bound - just the expected value
-        return static_cast<double>(exact) / test_vectors.size(); //std::pow(c_rel, 1.0 / rel_norm);
+        double r_s = static_cast<double>(exact) / test_vectors.size();
+        size_t n_s = test_vectors.size();
+
+        if ((10 * n_s) < (1u << g.num_inputs))
+            return r_s + (4.5 / n_s) * (1 + sqrt(1 + (4.0 / 9.0) * n_s * r_s * (1 - r_s)));
+        else
+            return r_s;
+
     }
 
     size_t Optimizer::gates(const solution_t &s) const {

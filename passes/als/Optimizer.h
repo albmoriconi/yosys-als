@@ -59,7 +59,7 @@ namespace yosys_als {
          * @brief Executes the heuristic optimization
          * @return A local optimum for the problem
          */
-        solution_t operator()();
+        archive_t operator()();
 
         /**
          * Converts a solution to a string
@@ -103,7 +103,6 @@ namespace yosys_als {
         static inline double accept_probability(double delta_avg, double temp) {
             return 1.0 / (1.0 + std::exp(delta_avg * temp));
         }
-        void print_archive(const archive_t &arch) const;
         std::vector<boost::dynamic_bitset<>> selection_sample(unsigned long n, unsigned long max);
 
         // Private solution evaluation methods

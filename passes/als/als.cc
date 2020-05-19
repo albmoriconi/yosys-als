@@ -17,8 +17,6 @@
  *
  */
 
-// TODO Add LICENSE
-// TODO Add README
 /**
  * @file
  * @brief Approximate logic synthesis pass for Yosys ALS module
@@ -28,6 +26,8 @@
 #include "Optimizer.h"
 #include "yosys_utils.h"
 #include "kernel/yosys.h"
+
+#include <boost/filesystem.hpp>
 
 #include <string>
 #include <vector>
@@ -51,6 +51,19 @@ namespace yosys_als {
 
         /// Index of the synthesized LUTs
         dict<Const, std::vector<aig_model_t>> synthesized_luts;
+
+        static void print_archive(const Optimizer &opt, const Optimizer::archive_t &arch) {
+            log(" Solution archive\n");
+            log(" Entry     Chosen LUTs         Arel        Gates\n");
+            log(" ----- --------------- ------------ ------------\n");
+
+            for (size_t i = 0; i < arch.size(); i++) {
+                auto choice_s = opt.to_string(arch[i].first);
+                if (choice_s.size() > 15)
+                    choice_s = choice_s.substr(0, 15);
+                log(" %5zu %15s %12g %12g\n", i, choice_s.c_str(), arch[i].second[0], arch[i].second[1]);
+            }
+        }
 
         void replace_lut(Module *const module, Cell *const lut, const aig_model_t &aig) {
             // Vector of variables in the model
@@ -128,12 +141,29 @@ namespace yosys_als {
                 }
             }
 
-            // 3. Optimize circuit
+            // 3. Optimize circuit and show results
             log_header(module->design, "Running approximation heuristic.\n");
             auto optimizer = Optimizer(module, weights, synthesized_luts);
-            for (auto &sub : optimizer()) {
-                replace_lut(module, sub.first.cell, synthesized_luts[get_lut_param(sub.first.cell)][sub.second]);
-            }
+            auto archive = optimizer();
+            print_archive(optimizer, archive);
+
+
+            // 4. Save results
+            log_header(module->design, "Saving archive of results.\n");
+            log_push();
+            std::string dir_name("als_");
+            dir_name += (module->name.c_str() + 1);
+            boost::filesystem::path dir_path(dir_name.c_str());
+            boost::filesystem::create_directory(dir_path); // TODO Please check for errors
+            std::string command = "write_verilog";
+            Pass::call(module->design, command + " " + dir_name + "/exact.v");
+            log_pop();
+
+
+            // X. Substitute LUTs
+            //for (auto &sub : optimizer()) {
+            //    replace_lut(module, sub.first.cell, synthesized_luts[get_lut_param(sub.first.cell)][sub.second]);
+            //}
         }
     };
 
