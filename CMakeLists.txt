@@ -51,7 +51,6 @@ target_include_directories (
 	${TARGET_NAME}
 	PRIVATE ${Boost_INCLUDE_DIRS}
 	PRIVATE ${YOSYS_ROOT}
-	PRIVATE ${SQLITE3_INCLUDE_DIRS}
 )	
 
 target_link_directories (
@@ -63,7 +62,6 @@ target_link_libraries (
 	${TARGET_NAME}
 	${Boost_LIBRARIES}
 	Boolector::boolector
-	${SQLITE3_LIBRARIES}
 )
 
 target_link_options(

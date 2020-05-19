@@ -29,7 +29,6 @@
 
 #include <boost/dynamic_bitset.hpp>
 #include <boost/optional.hpp>
-#include "sqlite3.h"
 #include <array>
 #include <string>
 #include <vector>

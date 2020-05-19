@@ -1,7 +1,8 @@
 #ifndef EVALUATOR_HSIEH_CLASS_H
 #define EVALUATOR_HSIEH_CLASS_H
 
-#include <unordered_map>
+#include <utility>
+#include <vector>
 #include <string>
 #include "graph.h"
 #include "lut_catalog.h"
@@ -47,9 +48,9 @@ class evaluator_t
 		graph_t &luts_graph;
 		lut_catalog_t &luts_catalog;
 		size_t ntests;
-		std::unordered_map<std::string, std::string> exact_io_map;
+		std::vector<std::pair<boost::dynamic_bitset<>, boost::dynamic_bitset<>>> exact_io_map;
 
-		std::string evaluate_graph(const std::string&, const ax_configuration_t&) const;
+		boost::dynamic_bitset<> evaluate_graph(const boost::dynamic_bitset<>&, const ax_configuration_t&) const;
 		
 };
 

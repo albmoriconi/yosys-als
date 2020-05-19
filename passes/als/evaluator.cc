@@ -9,18 +9,18 @@ void yosys_als::evaluator_t::set_baseline_solution(const ax_configuration_t &bas
 	std::default_random_engine re(rd());
 	std::uniform_real_distribution<double> uniform(0.0, 1.0);
 	
+	size_t max = std::pow(2, luts_graph.get_primary_inputs()) - 1;
+	
 	size_t n = luts_graph.get_primary_inputs();
 	for (unsigned vector = 0; vector < ntests; vector++)
-	{
-		size_t max = re();
-		std::string input_vector(n, '0');
 		for (size_t t = 0, m = 0; m < n; t++)
 			if ((max - t) * uniform(re) < (n - m))
-				input_vector[m++] = '1';
-			
-		std::string output_vector = evaluate_graph(input_vector, baseline_solution);
-		exact_io_map.emplace(std::make_pair(input_vector, output_vector));
-	}
+			{
+				boost::dynamic_bitset<> input_vector(n, t);
+				boost::dynamic_bitset<> output_vector = evaluate_graph(input_vector, baseline_solution);
+				exact_io_map.emplace(exact_io_map.end(), std::make_pair(input_vector, output_vector));
+				m++;
+			}
 }
 
 void yosys_als::evaluator_t::get_error_frequency(
@@ -40,12 +40,11 @@ void yosys_als::evaluator_t::get_error_frequency(
 	upper_bound = center + range;
 }
 
-std::string
+boost::dynamic_bitset<>
 yosys_als::evaluator_t::evaluate_graph(
-	const std::string& input,
+	const boost::dynamic_bitset<> &input_vector,
 	const yosys_als::ax_configuration_t &configuration) const
 {
-	boost::dynamic_bitset<> input_vector(input);
 	Yosys::dict<vertex_t, bool> cell_value;
 	std::string output;
 	size_t curr_input = 0; // ugly, but dynamic_bitset has no iterators
@@ -77,7 +76,5 @@ yosys_als::evaluator_t::evaluate_graph(
 			}
 		}
 	}
-	
-	return output;
+	return boost::dynamic_bitset<>(output);
 }
-

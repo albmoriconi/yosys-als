@@ -78,13 +78,13 @@ namespace yosys_als {
 			
 			/** Number of primary input cells */
 			size_t primary_inputs;
-
-			void from_module(Yosys::Module * const module);
-		
-		public:
 			
 			/** Build an empty graph */
 			graph_t() {}
+		
+			void from_module(Yosys::Module * const module);
+		
+		public:
 			
 			/**
 			 * @brief Create a graph with the topological structure of the circuit
@@ -93,22 +93,23 @@ namespace yosys_als {
 			 */
 	    	explicit graph_t(Yosys::Module * const module)
 	    	{
+	    		primary_inputs = 0;
 				from_module(module);
 				boost::topological_sort(adj_list, std::back_inserter(ordered_vertices));
 				std::reverse(ordered_vertices.begin(), ordered_vertices.end());
 			}
 			
 			/// Directly accesses a vertex
-			adj_list_t::vertex_bundled& operator[](adj_list_t::vertex_descriptor v) {return adj_list[v];}
+			vertex_t & operator[](adj_list_t::vertex_descriptor v) {return adj_list[v];}
 			
 			/// Directly accesses a vertex
-			const adj_list_t::vertex_bundled& operator[](adj_list_t::vertex_descriptor v) const	{return adj_list[v];}
+			const vertex_t & operator[](adj_list_t::vertex_descriptor v) const	{return adj_list[v];}
 			
-			// Direclty accesses an edge
-			adj_list_t::edge_bundled& operator[](adj_list_t::edge_descriptor e)	{ return adj_list[e]; }
+			/// Direclty accesses an edge
+			edge_t & operator[](adj_list_t::edge_descriptor e)	{ return adj_list[e]; }
 			
 			/// Directly accesses an edge
-			const adj_list_t::edge_bundled& operator[](adj_list_t::edge_descriptor e) const{return adj_list[e];}
+			const edge_t & operator[](adj_list_t::edge_descriptor e) const{return adj_list[e];}
 
 			const std::vector<vertex_descriptor_t>& get_ordered_vertices() const {return ordered_vertices;}
 			
