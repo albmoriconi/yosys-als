@@ -86,10 +86,19 @@ namespace yosys_als {
          */
         Optimizer(Yosys::Module *module, weights_t &weights, lut_catalogue_t &luts)
                 : g(graph_from_module(module)), sigmap(module), weights(weights), luts(luts),
-                ctx(optimizer_context_t<E> {this, g, vertices, sigmap, weights, luts}), evaluator(&ctx) {
+                ctx(optimizer_context_t<E> {this, g, vertices, sigmap, weights, luts}), evaluator(&ctx) { }
+
+        /**
+         * @brief Setup the evaluator
+         * @note This way we complete construction before initialization
+         */
+        void setup() {
             // Create topological ordering for graph
             topological_sort(g.g, std::back_inserter(vertices));
             std::reverse(vertices.begin(), vertices.end());
+
+            // Setup the evaluator
+            evaluator.setup();
         }
 
         /**

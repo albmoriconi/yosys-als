@@ -29,7 +29,9 @@
 
 namespace yosys_als {
 
-    ErSEvaluator::ErSEvaluator(optimizer_context_t<ErSEvaluator> *ctx) : ctx(ctx) {
+    ErSEvaluator::ErSEvaluator(optimizer_context_t<ErSEvaluator> *ctx) : ctx(ctx) { }
+
+    void ErSEvaluator::setup() {
         // Count reliability normalization factor
         rel_norm = 0.0;
         for (auto &w : ctx->weights)
@@ -44,6 +46,16 @@ namespace yosys_als {
         exact_outputs.reserve(test_vectors.size());
         for (auto &v : test_vectors)
             exact_outputs.emplace_back(evaluate_graph(ctx->opt->empty_solution().first, v));
+
+        // DEBUG
+        int i;
+        std::cout << gates_baseline << std::endl;
+        std::cout << test_vectors.size() << std::endl;
+        std::cout << exact_outputs.size() << std::endl;
+        for (size_t i = 0; i < test_vectors.size(); i++) {
+            std::cout << test_vectors[i] << " " << exact_outputs[i] << std::endl;
+        }
+        std::cin >> i;
     }
 
     ErSEvaluator::value_t ErSEvaluator::value(const solution_t &s) const {

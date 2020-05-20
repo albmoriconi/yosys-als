@@ -46,6 +46,12 @@ namespace yosys_als {
         ErSEvaluator(optimizer_context_t<ErSEvaluator> *ctx);
 
         /**
+         * @brief Setup the evaluator
+         * @note This way we complete construction before initialization
+         */
+        void setup();
+
+        /**
          * @brief Evaluates a solution
          * @param s The solution
          */

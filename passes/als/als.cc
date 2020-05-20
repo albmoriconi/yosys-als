@@ -179,6 +179,7 @@ namespace yosys_als {
             // 3. Optimize circuit and show results
             log_header(module->design, "Running approximation heuristic.\n");
             auto optimizer = Optimizer<ErSEvaluator>(module, weights, synthesized_luts);
+            optimizer.setup();
             auto archive = optimizer();
 
             // 4. Save results
