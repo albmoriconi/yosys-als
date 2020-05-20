@@ -46,6 +46,9 @@ namespace yosys_als {
         /// If \c true, log debug information
         bool debug = false;
 
+        /// If \c true, rewrite AIG
+        bool rewrite_run = false;
+
         /// Weights for the outputs
         Optimizer::weights_t weights;
 
@@ -53,7 +56,6 @@ namespace yosys_als {
         dict<Const, std::vector<aig_model_t>> synthesized_luts;
 
         static void print_archive(const Optimizer &opt, const Optimizer::archive_t &arch) {
-            log(" Solution archive\n");
             log(" Entry     Chosen LUTs         Arel        Gates\n");
             log(" ----- --------------- ------------ ------------\n");
 
@@ -71,6 +73,7 @@ namespace yosys_als {
             vars[1].append(State::S0);
 
             // Get LUT ins and outs
+            // TODO Disconnect A input, use B for rewriting
             SigSpec lut_out;
             for (auto &conn : lut->connections()) {
                 if (lut->input(conn.first))
@@ -120,6 +123,24 @@ namespace yosys_als {
          * @param module A module
          */
         void run(Module *const module) {
+            // 0. Is this a rewrite run?
+            if (rewrite_run) {
+                Pass::call(module->design, "clean");
+                std::vector<Cell*> to_sub;
+                for (auto cell : module->cells()) {
+                    if (cell->type == "$shr") {
+                        log("%s\n", get_lut_param(cell).as_string().c_str());
+                        to_sub.push_back(cell);
+                    }
+                }
+
+                for (auto cell : to_sub) {
+                    // TODO Get constant from A input
+                    replace_lut(module, cell, synthesize_lut(get_lut_param(cell), 0, debug));
+                }
+                return;
+            }
+
             // 1. 4-LUT synthesis
             ScriptPass::call(module->design, "synth -lut 4");
 
@@ -145,8 +166,6 @@ namespace yosys_als {
             log_header(module->design, "Running approximation heuristic.\n");
             auto optimizer = Optimizer(module, weights, synthesized_luts);
             auto archive = optimizer();
-            print_archive(optimizer, archive);
-
 
             // 4. Save results
             log_header(module->design, "Saving archive of results.\n");
@@ -157,13 +176,40 @@ namespace yosys_als {
             boost::filesystem::create_directory(dir_path); // TODO Please check for errors
             std::string command = "write_verilog";
             Pass::call(module->design, command + " " + dir_name + "/exact.v");
+
+            dict<IdString, Const> to_restore;
+            for (auto cell : module->cells()) {
+                if (is_lut(cell))
+                    to_restore[cell->name] = get_lut_param(cell);
+            }
+
+            for (size_t i = 0; i < archive.size(); i++) {
+                log_header(module->design, "Rewriting variant %zu.\n", i);
+                std::string file_name("variant_");
+                file_name += std::to_string(i + 1);
+                for (auto &v : archive[i].first) {
+                    if (is_lut(v.first.cell)) {
+                        auto aig = synthesized_luts[get_lut_param(v.first.cell)][v.second];
+                        std::string fun_spec_s;
+                        boost::to_string(aig.fun_spec, fun_spec_s);
+                        log("Rewriting %s with %s\n",
+                                get_lut_param(v.first.cell).as_string().c_str(), fun_spec_s.c_str());
+                        v.first.cell->setParam("\\LUT", Const::from_string(fun_spec_s));
+                    }
+                }
+                Pass::call(module->design, command + " " + dir_name + "/" + file_name + ".v");
+
+                for (auto cell : module->cells()) {
+                    if (is_lut(cell))
+                        cell->setParam("\\LUT", to_restore[cell->name]);
+                }
+            }
+            log_header(module->design, "Rolling-back all rewrites.\n");
             log_pop();
 
-
-            // X. Substitute LUTs
-            //for (auto &sub : optimizer()) {
-            //    replace_lut(module, sub.first.cell, synthesized_luts[get_lut_param(sub.first.cell)][sub.second]);
-            //}
+            // 5. Output results
+            log_header(module->design, "Showing archive of results.\n");
+            print_archive(optimizer, archive);
         }
     };
 
@@ -182,6 +228,10 @@ namespace yosys_als {
             log("\n");
             log("    -w <signal> <value>\n");
             log("        set the weight for the output signal to the specified power of two.\n");
+            log("\n");
+            log("\n");
+            log("    -r\n");
+            log("        run AIG rewriting of top module\n");
             log("\n");
             log("\n");
             log("    -d\n");
@@ -208,6 +258,9 @@ namespace yosys_als {
                 if (args[argidx] == "-d") {
                     worker.debug = true;
                     continue;
+                }
+                if (args[argidx] == "-r") {
+                    worker.rewrite_run = true;
                 }
             }
             extra_args(args, argidx, design);
