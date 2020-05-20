@@ -28,6 +28,8 @@
 #include "smtsynth.h"
 #include "kernel/yosys.h"
 
+#include <sqlite3.h>
+
 namespace yosys_als {
 
     /// Type for the catalogue of synthesized LUTs
@@ -39,7 +41,7 @@ namespace yosys_als {
      * @param out_distance The approximation degree
      * @return The synthesized AIG model
      */
-    aig_model_t synthesize_lut(const Yosys::Const &lut, unsigned int out_distance, bool debug);
+    aig_model_t synthesize_lut(const Yosys::Const &lut, unsigned int out_distance, bool debug, sqlite3 *db);
 
     /**
      * Checks if cell is a LUT

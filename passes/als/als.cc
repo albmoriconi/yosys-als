@@ -28,6 +28,7 @@
 #include "kernel/yosys.h"
 
 #include <boost/filesystem.hpp>
+#include <sqlite3.h>
 
 #include <string>
 #include <vector>
@@ -48,6 +49,9 @@ namespace yosys_als {
 
         /// If \c true, rewrite AIG
         bool rewrite_run = false;
+
+        /// The catalogue cache
+        sqlite3 *db = nullptr;
 
         /// Weights for the outputs
         Optimizer::weights_t weights;
@@ -125,6 +129,9 @@ namespace yosys_als {
          * @param module A module
          */
         void run(Module *const module) {
+            // -1. Ensure our cache db is ready
+            sqlite3_open("catalogue.db", &db);
+
             // 0. Is this a rewrite run?
             if (rewrite_run) {
                 log_header(module->design, "Rewriting the AIG.\n");
@@ -139,7 +146,7 @@ namespace yosys_als {
 
                 for (auto cell : to_sub) {
                     std::string fun_spec = cell->connections().at("\\A").as_string();
-                    replace_lut(module, cell, synthesize_lut(Const::from_string(fun_spec), 0, debug));
+                    replace_lut(module, cell, synthesize_lut(Const::from_string(fun_spec), 0, debug, db));
                 }
 
                 Pass::call(module->design, "clean");
@@ -156,11 +163,11 @@ namespace yosys_als {
                     const auto &fun_spec = get_lut_param(cell);
 
                     if (synthesized_luts.find(fun_spec) == synthesized_luts.end()) {
-                        synthesized_luts[fun_spec] = std::vector<aig_model_t>{synthesize_lut(fun_spec, 0, debug)};
+                        synthesized_luts[fun_spec] = std::vector<aig_model_t>{synthesize_lut(fun_spec, 0, debug, db)};
 
                         size_t dist = 1;
                         while (synthesized_luts[fun_spec].back().num_gates > 0) {
-                            auto approximate_candidate = synthesize_lut(fun_spec, dist++, debug);
+                            auto approximate_candidate = synthesize_lut(fun_spec, dist++, debug, db);
                             synthesized_luts[fun_spec].push_back(std::move(approximate_candidate));
                         }
                     }
@@ -215,6 +222,10 @@ namespace yosys_als {
             // 5. Output results
             log_header(module->design, "Showing archive of results.\n");
             print_archive(optimizer, archive);
+
+            // +1. Close our db cache
+            assert(sqlite3_close(db) == SQLITE_OK);
+            db = nullptr;
         }
     };
 

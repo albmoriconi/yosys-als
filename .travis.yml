@@ -6,7 +6,7 @@ before_install:
   - sudo apt-get -y install clang graphviz xdot libboost-system-dev libboost-python-dev libboost-filesystem-dev
 
 install:
-  - sudo apt-get -y install libboost-graph-dev libboost-dev
+  - sudo apt-get -y install libboost-serialization-dev libboost-graph-dev libboost-dev sqlite3
   - git clone --depth=50 https://github.com/YosysHQ/yosys.git
   - pushd yosys
   - make config-gcc && make -j$(nproc) && sudo make install

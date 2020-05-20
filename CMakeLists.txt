@@ -11,8 +11,9 @@ string(STRIP ${YOSYS_CXXFLAGS} YOSYS_CXXFLAGS)
 set(CMAKE_CXX_COMPILER ${YOSYS_CXX})
 set(CMAKE_CXX_FLAGS ${YOSYS_CXXFLAGS})
 
-find_package(Boost REQUIRED)
+find_package(Boost REQUIRED COMPONENTS filesystem)
 find_package(Boolector REQUIRED)
+find_package(SQLite3 REQUIRED)
 
 set(TARGET als)
 set(SRC_DIR passes/${TARGET})
@@ -32,5 +33,5 @@ add_executable(${TARGET}
 
 target_compile_options(${TARGET} PRIVATE -Wall -Wextra -Wpedantic)
 
-set(LIBS "-lboolector -lboost_system -lboost_filesystem")
+set(LIBS "-lboolector -lboost_system -lboost_filesystem -lboost_serialization -lsqlite3")
 set(CMAKE_CXX_LINK_EXECUTABLE "yosys-config --build ${TARGET}.so <OBJECTS> ${LIBS}")
