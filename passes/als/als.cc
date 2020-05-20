@@ -73,10 +73,9 @@ namespace yosys_als {
             vars[1].append(State::S0);
 
             // Get LUT ins and outs
-            // TODO Disconnect A input, use B for rewriting
             SigSpec lut_out;
             for (auto &conn : lut->connections()) {
-                if (lut->input(conn.first))
+                if (lut->input(conn.first) && conn.first.str() == "\\B")
                     vars[1].append(conn.second);
                 else if (lut->output(conn.first))
                     lut_out = conn.second;
@@ -112,7 +111,10 @@ namespace yosys_als {
                     module->connect(and_ab[c][i], vars[p][s]);
                 }
             }
-            module->connect(lut_out, vars[aig.out_p][aig.out]);
+            SigSpec lut_out_rep;
+            for (int i = 0; i < lut_out.size(); i++)
+                lut_out_rep.append(vars[aig.out_p][aig.out]);
+            module->connect(lut_out, lut_out_rep);
 
             // Delete LUT
             module->remove(lut);
@@ -125,19 +127,22 @@ namespace yosys_als {
         void run(Module *const module) {
             // 0. Is this a rewrite run?
             if (rewrite_run) {
+                log_header(module->design, "Rewriting the AIG.\n");
                 Pass::call(module->design, "clean");
+
                 std::vector<Cell*> to_sub;
                 for (auto cell : module->cells()) {
                     if (cell->type == "$shr") {
-                        log("%s\n", get_lut_param(cell).as_string().c_str());
                         to_sub.push_back(cell);
                     }
                 }
 
                 for (auto cell : to_sub) {
-                    // TODO Get constant from A input
-                    replace_lut(module, cell, synthesize_lut(get_lut_param(cell), 0, debug));
+                    std::string fun_spec = cell->connections().at("\\A").as_string();
+                    replace_lut(module, cell, synthesize_lut(Const::from_string(fun_spec), 0, debug));
                 }
+
+                Pass::call(module->design, "clean");
                 return;
             }
 
