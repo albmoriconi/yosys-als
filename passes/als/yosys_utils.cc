@@ -31,6 +31,8 @@
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/array.hpp>
 
+#include <random>
+
 USING_YOSYS_NAMESPACE
 
 namespace boost {
@@ -77,6 +79,8 @@ namespace boost {
 
 namespace yosys_als {
 
+    std::default_random_engine rng{std::random_device{}()};
+
     struct aig_bundle_t {
         aig_model_t *aig;
         bool hit;
@@ -109,7 +113,7 @@ namespace yosys_als {
             std::string query = "select aig from luts where spec = '" + key + "';";
             sqlite3_exec(db, query.c_str(),
                     [](void *aig_bundle, int argc, char **argv, char **azColName) { // Cache hit
-                        aig_bundle_t *the_bundle = (aig_bundle_t*) aig_bundle;
+                        auto *the_bundle = (aig_bundle_t*) aig_bundle;
                         std::istringstream is(argv[0]);
                         boost::archive::text_iarchive ia(is);
 

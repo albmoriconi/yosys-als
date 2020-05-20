@@ -23,6 +23,7 @@
  */
 
 #include "smtsynth.h"
+#include "ErSEvaluator.h"
 #include "Optimizer.h"
 #include "yosys_utils.h"
 #include "kernel/yosys.h"
@@ -54,12 +55,13 @@ namespace yosys_als {
         sqlite3 *db = nullptr;
 
         /// Weights for the outputs
-        Optimizer::weights_t weights;
+        weights_t weights;
 
         /// Index of the synthesized LUTs
         dict<Const, std::vector<aig_model_t>> synthesized_luts;
 
-        static void print_archive(const Optimizer &opt, const Optimizer::archive_t &arch) {
+        template <typename E>
+        static void print_archive(const Optimizer<E> &opt, const archive_t<E> &arch) {
             log(" Entry     Chosen LUTs         Arel        Gates\n");
             log(" ----- --------------- ------------ ------------\n");
 
@@ -176,7 +178,7 @@ namespace yosys_als {
 
             // 3. Optimize circuit and show results
             log_header(module->design, "Running approximation heuristic.\n");
-            auto optimizer = Optimizer(module, weights, synthesized_luts);
+            auto optimizer = Optimizer<ErSEvaluator>(module, weights, synthesized_luts);
             auto archive = optimizer();
 
             // 4. Save results

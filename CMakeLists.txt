@@ -28,8 +28,9 @@ add_executable(${TARGET}
         ${SRC_DIR}/yosys_utils.h
         ${SRC_DIR}/graph.cc
         ${SRC_DIR}/graph.h
-        ${SRC_DIR}/Optimizer.cc
-        ${SRC_DIR}/Optimizer.h)
+        ${SRC_DIR}/Optimizer.h
+        ${SRC_DIR}/ErSEvaluator.cc
+        ${SRC_DIR}/ErSEvaluator.h)
 
 target_compile_options(${TARGET} PRIVATE -Wall -Wextra -Wpedantic)
 
