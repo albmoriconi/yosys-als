@@ -39,7 +39,8 @@ namespace boost {
     namespace serialization {
 
         template<class Archive>
-        void serialize(Archive &ar, yosys_als::aig_model_t &aig, const unsigned int version) {
+        void serialize(Archive &ar, yosys_als::aig_model_t &aig,
+                const unsigned int version __attribute__((unused))) {
             ar & aig.fun_spec;
             ar & aig.num_inputs;
             ar & aig.num_gates;

@@ -96,10 +96,14 @@ namespace yosys_als {
         // Parameters
         static constexpr size_t test_vectors_n = 1000;
 
+        // Execution data
+        unsigned processor_count;
+
         // Private evaluation methods
         std::vector<boost::dynamic_bitset<>> selection_sample(unsigned long n, unsigned long max);
 
         double circuit_reliability(const solution_t &s) const;
+        double circuit_reliability_smt(const solution_t &s) const;
 
         boost::dynamic_bitset<> evaluate_graph(const solution_t &s,
                                                const boost::dynamic_bitset<> &input) const;

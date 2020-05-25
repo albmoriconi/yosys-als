@@ -27,9 +27,19 @@
 
 #include "ErSEvaluator.h"
 
+#include <map>
+#include <numeric>
+#include <thread>
+
 namespace yosys_als {
 
-    ErSEvaluator::ErSEvaluator(optimizer_context_t<ErSEvaluator> *ctx) : ctx(ctx) { }
+    ErSEvaluator::ErSEvaluator(optimizer_context_t<ErSEvaluator> *ctx) : ctx(ctx) {
+        processor_count = std::thread::hardware_concurrency();
+
+        // May return 0 on some systems?
+        if (processor_count < 1)
+            processor_count = 1;
+    }
 
     void ErSEvaluator::setup() {
         // Count reliability normalization factor
@@ -46,21 +56,15 @@ namespace yosys_als {
         exact_outputs.reserve(test_vectors.size());
         for (auto &v : test_vectors)
             exact_outputs.emplace_back(evaluate_graph(ctx->opt->empty_solution().first, v));
-
-        // DEBUG
-        int i;
-        std::cout << gates_baseline << std::endl;
-        std::cout << test_vectors.size() << std::endl;
-        std::cout << exact_outputs.size() << std::endl;
-        for (size_t i = 0; i < test_vectors.size(); i++) {
-            std::cout << test_vectors[i] << " " << exact_outputs[i] << std::endl;
-        }
-        std::cin >> i;
     }
 
     ErSEvaluator::value_t ErSEvaluator::value(const solution_t &s) const {
-        return value_t{1 - circuit_reliability(s),
-                       static_cast<double>(gates(s)) / gates_baseline};
+        if (test_vectors.size() < 1000)
+            return value_t{1 - circuit_reliability(s),
+                           static_cast<double>(gates(s)) / gates_baseline};
+        else
+            return value_t{1 - circuit_reliability_smt(s),
+                           static_cast<double>(gates(s)) / gates_baseline};
     }
 
     bool ErSEvaluator::dominates(const archive_entry_t<ErSEvaluator> &s1,
@@ -120,6 +124,38 @@ namespace yosys_als {
 
     }
 
+    double ErSEvaluator::circuit_reliability_smt(const solution_t &s) const {
+        std::vector<size_t> exact(processor_count, 0);
+        std::vector<std::thread> threads;
+        size_t slice = test_vectors.size() / processor_count;
+
+        for (size_t j = 0; j < processor_count; j++) {
+            size_t start = j * slice;
+            size_t end = std::min(start + slice, test_vectors.size());
+
+            threads.emplace_back([this, &s, &exact, start, end, j] () {
+                for (size_t i = start; i < end; i++) {
+                    if (evaluate_graph(s, test_vectors[i]) == exact_outputs[i]) {
+                        exact[j]++;
+                    }
+                }
+            });
+        }
+
+        for (auto &t : threads)
+            t.join();
+
+        size_t exact_tot = std::accumulate(exact.begin(), exact.end(), (size_t)0);
+        double r_s = static_cast<double>(exact_tot) / test_vectors.size();
+        size_t n_s = test_vectors.size();
+
+        if ((10 * n_s) < (1u << ctx->g.num_inputs))
+            return r_s + (4.5 / n_s) * (1 + sqrt(1 + (4.0 / 9.0) * n_s * r_s * (1 - r_s)));
+        else
+            return r_s;
+
+    }
+
     size_t ErSEvaluator::gates(const solution_t &s) const {
         size_t count = 0;
 
@@ -131,7 +167,9 @@ namespace yosys_als {
 
     boost::dynamic_bitset<> ErSEvaluator::evaluate_graph(const solution_t &s,
             const boost::dynamic_bitset<> &input) const {
-        Yosys::dict<vertex_t, bool> cell_value;
+        // Yosys::dict does not seem to be thread-safe w.r.t. write access?
+        // TODO If we had a max of vertex_d we could simply use an array
+        std::map<vertex_d, bool> cell_value;
         std::string output;
         size_t curr_input = 0; // ugly, but dynamic_bitset has no iterators
 
@@ -140,26 +178,26 @@ namespace yosys_als {
             if (boost::in_degree(v, ctx->g.g) == 0) {
                 // Assign input value to vertex (no check on cardinality)
                 if (ctx->g.g[v].type == vertex_t::PRIMARY_INPUT)
-                    cell_value[ctx->g.g[v]] = input[curr_input++];
+                    cell_value[v] = input[curr_input++];
                 else // Constant
-                    cell_value[ctx->g.g[v]] = (ctx->g.g[v].type == vertex_t::CONSTANT_ONE);
+                    cell_value[v] = (ctx->g.g[v].type == vertex_t::CONSTANT_ONE);
             } else {
                 // Construct the input for the cell
                 auto in_edges = boost::in_edges(v, ctx->g.g);
                 std::string cell_input;
                 std::for_each(in_edges.first, in_edges.second, [&](const edge_d &e) {
-                    cell_input += cell_value[ctx->g.g[boost::source(e, ctx->g.g)]] ? "1" : "0";
+                    cell_input += cell_value[boost::source(e, ctx->g.g)] ? "1" : "0";
                 });
 
                 // Evaluate cell output value from inputs - we only cover the LUT case
                 auto lut_specification =
                         ctx->luts.at(get_lut_param(ctx->g.g[v].cell))[s.at(ctx->g.g[v])].fun_spec;
                 size_t lut_entry = std::stoul(cell_input, nullptr, 2);
-                cell_value[ctx->g.g[v]] = lut_specification[lut_entry];
+                cell_value[v] = lut_specification[lut_entry];
 
                 if (boost::out_degree(v, ctx->g.g) == 0) { // Primary outputs
                     // maybe it's faster to append directly to a bitset? we should profile
-                    output += cell_value[ctx->g.g[v]] ? "1" : "0";
+                    output += cell_value[v] ? "1" : "0";
                 }
             }
         }
