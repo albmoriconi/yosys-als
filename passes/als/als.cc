@@ -61,16 +61,23 @@ namespace yosys_als {
         dict<Const, std::vector<aig_model_t>> synthesized_luts;
 
         template <typename E>
-        static void print_archive(const Optimizer<E> &opt, const archive_t<E> &arch) {
-            log(" Entry     Chosen LUTs         Arel        Gates\n");
-            log(" ----- --------------- ------------ ------------\n");
+        static std::string print_archive(const Optimizer<E> &opt, const archive_t<E> &arch) {
+            std::string log_string;
+            log_string.append(" Entry     Chosen LUTs         Arel        Gates\n");
+            log_string.append(" ----- --------------- ------------ ------------\n");
 
+            char log_line_buffer[60];
             for (size_t i = 0; i < arch.size(); i++) {
                 auto choice_s = opt.to_string(arch[i].first);
-                if (choice_s.size() > 15)
+                if (choice_s.size() > 15) {
                     choice_s = choice_s.substr(0, 15);
-                log(" %5zu %15s %12g %12g\n", i, choice_s.c_str(), arch[i].second[0], arch[i].second[1]);
+                }
+                snprintf(log_line_buffer, sizeof(log_line_buffer), " %5zu %15s %12g %12g\n",
+                        i, choice_s.c_str(), arch[i].second[0], arch[i].second[1]);
+                log_string.append(log_line_buffer);
             }
+
+            return log_string;
         }
 
         void replace_lut(Module *const module, Cell *const lut, const aig_model_t &aig) {
@@ -189,6 +196,13 @@ namespace yosys_als {
             dir_name += (module->name.c_str() + 1);
             boost::filesystem::path dir_path(dir_name.c_str());
             boost::filesystem::create_directory(dir_path); // TODO Please check for errors
+
+            auto log_string = print_archive(optimizer, archive);
+            std::ofstream log_file;
+            log_file.open (dir_name + "/log.txt");
+            log_file << log_string;
+            log_file.close();
+
             std::string command = "write_verilog";
             Pass::call(module->design, command + " " + dir_name + "/exact.v");
 
@@ -224,7 +238,7 @@ namespace yosys_als {
 
             // 5. Output results
             log_header(module->design, "Showing archive of results.\n");
-            print_archive(optimizer, archive);
+            log(log_string.c_str());
 
             // +1. Close our db cache
             assert(sqlite3_close(db) == SQLITE_OK);
