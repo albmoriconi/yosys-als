@@ -40,6 +40,12 @@ namespace yosys_als {
         /// Type for the value of the solution
         typedef std::array<double, 2> value_t;
 
+        /// Parameters for an optimizer based on this evaluator
+        struct parameters_t : public optimizer_parameters_t {
+            /// Number of test vectors to be evaluated
+            int test_vectors_n = 1000;
+        };
+
         /**
          * @brief Constructor
          */
@@ -49,7 +55,7 @@ namespace yosys_als {
          * @brief Setup the evaluator
          * @note This way we complete construction before initialization
          */
-        void setup();
+        void setup(const parameters_t &parameters);
 
         /**
          * @brief Evaluates a solution
@@ -94,7 +100,7 @@ namespace yosys_als {
         std::vector<boost::dynamic_bitset<>> exact_outputs;
 
         // Parameters
-        static constexpr size_t test_vectors_n = 1000;
+        size_t test_vectors_n = 1000;
 
         // Execution data
         unsigned processor_count;

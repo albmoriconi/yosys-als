@@ -73,6 +73,26 @@ namespace yosys_als {
     };
 
     /**
+     * @brief The optimizer parameters
+     */
+    struct optimizer_parameters_t {
+        /// Number of solutions to be hill-climbed at beginning
+        size_t soft_limit = 20;
+
+        /// Starting temperature
+        double t_max = 1500;
+
+        /// Ending temperature
+        double t_min = 0.01;
+
+        /// Cooling factor
+        double cooling = 0.9;
+
+        /// Number of iterations
+        size_t max_iter = 2500;
+    };
+
+    /**
      * @brief Implements the optimization heuristic for ALS
      * @tparam E A type that implements evaluation primitives for solutions
      */
@@ -92,13 +112,20 @@ namespace yosys_als {
          * @brief Setup the evaluator
          * @note This way we complete construction before initialization
          */
-        void setup() {
+        void setup(const typename E::parameters_t &parameters) {
             // Create topological ordering for graph
             topological_sort(g.g, std::back_inserter(vertices));
             std::reverse(vertices.begin(), vertices.end());
 
+            // Set parameters
+            soft_limit = parameters.soft_limit;
+            t_max = parameters.t_max;
+            t_min = parameters.t_min;
+            cooling = parameters.cooling;
+            max_iter = parameters.max_iter;
+
             // Setup the evaluator
-            evaluator.setup();
+            evaluator.setup(parameters);
         }
 
         /**
@@ -231,11 +258,11 @@ namespace yosys_als {
 
         // Parameters
         // TODO Tweak parameters (e.g. temp = 5*luts, iter = 4*temp, ...)
-        static constexpr size_t soft_limit = 20;
-        static constexpr double t_max = 1500;
-        static constexpr double t_min = 0.01;
-        static constexpr double cooling = 0.9;
-        static constexpr size_t max_iter = 2500;
+        size_t soft_limit = 20;
+        double t_max = 1500;
+        double t_min = 0.01;
+        double cooling = 0.9;
+        size_t max_iter = 2500;
 
         // Private methods
         archive_entry_t<E> hill_climb(const archive_entry_t<E> &s, double arel_bias = 0.0) const {

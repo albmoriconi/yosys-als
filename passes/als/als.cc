@@ -57,6 +57,12 @@ namespace yosys_als {
         /// Weights for the outputs
         weights_t weights;
 
+        /// Maximum number of iterations for the optimizer
+        size_t max_iter;
+
+        /// Number of test vectors to be evaluated
+        size_t test_vectors_n;
+
         /// Index of the synthesized LUTs
         dict<Const, std::vector<aig_model_t>> synthesized_luts;
 
@@ -186,7 +192,10 @@ namespace yosys_als {
             // 3. Optimize circuit and show results
             log_header(module->design, "Running approximation heuristic.\n");
             auto optimizer = Optimizer<ErSEvaluator>(module, weights, synthesized_luts);
-            optimizer.setup();
+            ErSEvaluator::parameters_t parameters;
+            parameters.max_iter = max_iter;
+            parameters.test_vectors_n = test_vectors_n;
+            optimizer.setup(parameters);
             auto archive = optimizer();
 
             // 4. Save results
@@ -263,6 +272,14 @@ namespace yosys_als {
             log("        set the weight for the output signal to the specified power of two.\n");
             log("\n");
             log("\n");
+            log("    -i <value>\n");
+            log("        set the number of iterations for the optimizer.\n");
+            log("\n");
+            log("\n");
+            log("    -v <value>\n");
+            log("        set the number of test vectors for the evaluator.\n");
+            log("\n");
+            log("\n");
             log("    -r\n");
             log("        run AIG rewriting of top module\n");
             log("\n");
@@ -278,6 +295,8 @@ namespace yosys_als {
 
             AlsWorker worker;
             std::vector<std::pair<std::string, std::string>> weights;
+            std::string max_iter = "2500";
+            std::string test_vectors_n = "1000";
 
             // TODO Add arguments for specifying input probability
             size_t argidx;
@@ -286,6 +305,16 @@ namespace yosys_als {
                     std::string lhs = args[++argidx].c_str();
                     std::string rhs = args[++argidx].c_str();
                     weights.emplace_back(lhs, rhs);
+                    continue;
+                }
+                if (args[argidx] == "-i" && argidx + 1 < args.size()) {
+                    std::string arg = args[++argidx].c_str();
+                    max_iter = std::stoul(arg);
+                    continue;
+                }
+                if (args[argidx] == "-v" && argidx + 1 < args.size()) {
+                    std::string arg = args[++argidx].c_str();
+                    test_vectors_n = std::stoul(arg);
                     continue;
                 }
                 if (args[argidx] == "-d") {
@@ -323,6 +352,9 @@ namespace yosys_als {
 
                 worker.weights[lhs] = std::stod(w.second);
             }
+
+            worker.max_iter = std::stoul(max_iter);
+            worker.test_vectors_n = std::stoul(test_vectors_n);
 
             worker.run(top_mod);
 

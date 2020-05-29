@@ -41,7 +41,7 @@ namespace yosys_als {
             processor_count = 1;
     }
 
-    void ErSEvaluator::setup() {
+    void ErSEvaluator::setup(const parameters_t &parameters) {
         // Count reliability normalization factor
         rel_norm = 0.0;
         for (auto &w : ctx->weights)
@@ -49,6 +49,9 @@ namespace yosys_als {
 
         // Count gates baseline
         gates_baseline = gates(ctx->opt->empty_solution().first);
+
+        // Set parameters
+        test_vectors_n = parameters.test_vectors_n;
 
         // Create samples and evaluate exact outputs
         size_t total_vectors = 1u << ctx->g.num_inputs;
