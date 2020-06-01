@@ -94,7 +94,7 @@ namespace yosys_als {
             // Get LUT ins and outs
             SigSpec lut_out;
             for (auto &conn : lut->connections()) {
-                if (lut->input(conn.first) && conn.first.str() == "\\B")
+                if (lut->input(conn.first))
                     vars[1].append(conn.second);
                 else if (lut->output(conn.first))
                     lut_out = conn.second;
@@ -130,10 +130,7 @@ namespace yosys_als {
                     module->connect(and_ab[c][i], vars[p][s]);
                 }
             }
-            SigSpec lut_out_rep;
-            for (int i = 0; i < lut_out.size(); i++)
-                lut_out_rep.append(vars[aig.out_p][aig.out]);
-            module->connect(lut_out, lut_out_rep);
+            module->connect(lut_out, vars[aig.out_p][aig.out]);
 
             // Delete LUT
             module->remove(lut);
@@ -154,14 +151,13 @@ namespace yosys_als {
 
                 std::vector<Cell*> to_sub;
                 for (auto cell : module->cells()) {
-                    if (cell->type == "$shr") {
+                    if (is_lut(cell)) {
                         to_sub.push_back(cell);
                     }
                 }
 
                 for (auto cell : to_sub) {
-                    std::string fun_spec = cell->connections().at("\\A").as_string();
-                    replace_lut(module, cell, synthesize_lut(Const::from_string(fun_spec), 0, debug, db));
+                    replace_lut(module, cell, synthesize_lut(get_lut_param(cell), 0, debug, db));
                 }
 
                 Pass::call(module->design, "clean");
@@ -212,8 +208,8 @@ namespace yosys_als {
             log_file << log_string;
             log_file.close();
 
-            std::string command = "write_verilog";
-            Pass::call(module->design, command + " " + dir_name + "/exact.v");
+            std::string command = "write_ilang";
+            Pass::call(module->design, command + " " + dir_name + "/exact.ilang");
 
             dict<IdString, Const> to_restore;
             for (auto cell : module->cells()) {
@@ -235,7 +231,7 @@ namespace yosys_als {
                         v.first.cell->setParam("\\LUT", Const::from_string(fun_spec_s));
                     }
                 }
-                Pass::call(module->design, command + " " + dir_name + "/" + file_name + ".v");
+                Pass::call(module->design, command + " " + dir_name + "/" + file_name + ".ilang");
 
                 for (auto cell : module->cells()) {
                     if (is_lut(cell))
