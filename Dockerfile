@@ -19,11 +19,13 @@ RUN git clone https://github.com/albmoriconi/yosys-als.git
 
 # Compile
 WORKDIR /yosys
+RUN git checkout yosys-0.9
 RUN make config-gcc
 RUN make -j `nproc`
 RUN make install
 
 WORKDIR /boolector
+RUN git checkout 3.2.0
 RUN ./contrib/setup-lingeling.sh
 RUN ./contrib/setup-btor2tools.sh
 RUN ./configure.sh --shared

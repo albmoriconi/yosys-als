@@ -174,7 +174,8 @@ namespace yosys_als {
                     const auto &fun_spec = get_lut_param(cell);
 
                     if (synthesized_luts.find(fun_spec) == synthesized_luts.end()) {
-                        synthesized_luts[fun_spec] = std::vector<aig_model_t>{synthesize_lut(fun_spec, 0, debug, db)};
+                        synthesized_luts[fun_spec] =
+                                std::vector<aig_model_t>{synthesize_lut(fun_spec, 0, debug, db)};
 
                         size_t dist = 1;
                         while (synthesized_luts[fun_spec].back().num_gates > 0) {
