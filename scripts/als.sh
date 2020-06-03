@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-# Please set your Vivado installation path
-vivado_path="/tools/Xilinx/Vivado/2019.2"
-
 # Exit on error
 set -e
 
@@ -12,9 +9,6 @@ if [ -z $2 ]; then
   prefix=${basepath%.*}
   set $1 $prefix
 fi 
-
-# Set Vivado environment variables
-source ${vivado_path}/settings64.sh
 
 # Run scripts
 yosys -p "tcl als.tcl $1 $2"
