@@ -7,6 +7,8 @@ execute_process(COMMAND yosys-config --cxx OUTPUT_VARIABLE YOSYS_CXX)
 string(STRIP ${YOSYS_CXX} YOSYS_CXX)
 execute_process(COMMAND yosys-config --cxxflags OUTPUT_VARIABLE YOSYS_CXXFLAGS)
 string(STRIP ${YOSYS_CXXFLAGS} YOSYS_CXXFLAGS)
+execute_process(COMMAND yosys-config --datdir OUTPUT_VARIABLE YOSYS_DATDIR)
+string(STRIP ${YOSYS_DATDIR} YOSYS_DATDIR)
 
 set(CMAKE_CXX_COMPILER ${YOSYS_CXX})
 set(CMAKE_CXX_FLAGS ${YOSYS_CXXFLAGS})
@@ -36,3 +38,7 @@ target_compile_options(${TARGET} PRIVATE -Wall -Wextra -Wpedantic)
 
 set(LIBS "-lboolector -lboost_system -lboost_filesystem -lboost_serialization -lsqlite3")
 set(CMAKE_CXX_LINK_EXECUTABLE "yosys-config --build ${TARGET}.so <OBJECTS> ${LIBS}")
+
+add_custom_target(install_plugin
+        COMMAND mkdir -p ${YOSYS_DATDIR}/plugins
+        COMMAND cp als.so ${YOSYS_DATDIR}/plugins)

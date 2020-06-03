@@ -2,7 +2,7 @@
 if { $argc < 1 } {
     puts "Please specify Verilog source file name."
     puts "Also specify module name if it differs from file name."
-    exit
+    exit 1
 }
 
 set source_file [lindex $argv 0]
@@ -13,8 +13,15 @@ if { $argc < 2 } {
     set module_name [lindex $argv 1]
 }
 
+# Install als plugin
+yosys plugin -i als
+
 # Read Verilog source
-yosys read_verilog $source_file
+if { [string equal [file extension $source_file] .sv] } {
+  yosys read_verilog -sv $source_file
+} else {
+  yosys read_verilog $source_file
+}
 yosys hierarchy -check -top $module_name
 
 # Approximate logic synthesis
