@@ -32,6 +32,7 @@
 #include <sqlite3.h>
 
 #include <string>
+#include <thread>
 #include <vector>
 
 USING_YOSYS_NAMESPACE
@@ -136,6 +137,61 @@ namespace yosys_als {
             module->remove(lut);
         }
 
+        void exact_synthesis_helper(Module *module) {
+            auto processor_count = std::thread::hardware_concurrency();
+            processor_count = std::min(processor_count, 1u);
+            std::vector<dict<Const, std::vector<aig_model_t>>> result_slices(processor_count);
+
+            // In this simple implementation we pay SMT with bookkeeping
+            std::set<Yosys::Const> unique_luts_set;
+            std::vector<Yosys::Const> unique_luts;
+            for (auto cell : module->cells()) {
+                if (is_lut(cell)) {
+                    unique_luts_set.insert(get_lut_param(cell));
+                }
+            }
+            std::copy(unique_luts_set.begin(), unique_luts_set.end(), std::back_inserter(unique_luts));
+
+            // Ideally, we shouldn't make slices but start threads on demand.
+            // Otherwise, we are slowed down by the most computationally intensive slice
+            // Inexact semantics probably are not a problem, as we wouldn't start synthesis
+            // of the next entry before knowing current size unless we have a spare thread
+            // and we decide to do it speculatively.
+            // However, speculation is a good call: if current LUT is small enough, it would
+            // terminate quick enough to start on same thread; if it doesn't, using another
+            // thread seems a good call.
+            size_t slice = unique_luts.size() / processor_count;
+            std::vector<std::thread> threads;
+
+            for (size_t j = 0; j < processor_count; j++) {
+                size_t start = j * slice;
+                size_t end = std::min(start + slice, unique_luts.size());
+
+                threads.emplace_back([this, start, end, &unique_luts, &result_slices, j] () {
+                    for (size_t i = start; i < end; i++) {
+                        const auto &fun_spec = unique_luts[i];
+
+                        result_slices[j][fun_spec] =
+                                std::vector<aig_model_t>{synthesize_lut(fun_spec, 0, debug, db)};
+
+                        size_t dist = 1;
+                        while (result_slices[j][fun_spec].back().num_gates > 0) {
+                            auto approximate_candidate = synthesize_lut(fun_spec, dist++, debug, db);
+                            result_slices[j][fun_spec].push_back(std::move(approximate_candidate));
+                        }
+                    }
+                });
+            }
+
+            for (auto &t : threads)
+                t.join();
+
+            // Sorry, other bookkeeping
+            for (auto &result_slice : result_slices)
+                for (auto &result : result_slice)
+                    synthesized_luts[result.first] = result.second;
+        }
+
         /**
          * Runs an ALS step on selected module
          * @param module A module
@@ -169,22 +225,7 @@ namespace yosys_als {
 
             // 2. SMT exact synthesis
             log_header(module->design, "Running SMT exact synthesis for LUTs.\n");
-            for (auto cell : module->cells()) {
-                if (is_lut(cell)) {
-                    const auto &fun_spec = get_lut_param(cell);
-
-                    if (synthesized_luts.find(fun_spec) == synthesized_luts.end()) {
-                        synthesized_luts[fun_spec] =
-                                std::vector<aig_model_t>{synthesize_lut(fun_spec, 0, debug, db)};
-
-                        size_t dist = 1;
-                        while (synthesized_luts[fun_spec].back().num_gates > 0) {
-                            auto approximate_candidate = synthesize_lut(fun_spec, dist++, debug, db);
-                            synthesized_luts[fun_spec].push_back(std::move(approximate_candidate));
-                        }
-                    }
-                }
-            }
+            exact_synthesis_helper(module);
 
             // 3. Optimize circuit and show results
             log_header(module->design, "Running approximation heuristic.\n");
