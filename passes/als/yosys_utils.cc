@@ -31,6 +31,7 @@
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/array.hpp>
 
+#include <mutex>
 #include <random>
 
 USING_YOSYS_NAMESPACE
@@ -81,6 +82,8 @@ namespace boost {
 namespace yosys_als {
 
     std::default_random_engine rng{std::random_device{}()};
+    std::mutex db_mtx;
+    std::mutex log_mtx;
 
     struct aig_bundle_t {
         aig_model_t *aig;
@@ -93,16 +96,21 @@ namespace yosys_als {
 
         // Database initialization
         if (db != nullptr) {
+            db_mtx.lock();
             if (sqlite3_table_column_metadata(db, 0, "luts", 0, 0, 0, 0, 0, 0) != SQLITE_OK) {
                 std::string query = "create table luts (spec text not null, aig blob not null, primary key (spec));";
                 sqlite3_exec(db, query.c_str(), 0, 0, 0);
                 if (debug)
                     log("Initialized cache\n");
             }
+            db_mtx.unlock();
         }
 
-        if (debug)
-            log("%s @delta%d... ", lut.as_string().c_str(), out_distance);
+        if (debug) {
+            log_mtx.lock();
+            log("[SYNTH] Requested synthesis for %s@%d.\n", lut.as_string().c_str(), out_distance);
+            log_mtx.unlock();
+        }
 
         aig_model_t aig;
         aig_bundle_t aig_bundle {&aig, false};
@@ -118,7 +126,6 @@ namespace yosys_als {
                         std::istringstream is(argv[0]);
                         boost::archive::text_iarchive ia(is);
 
-                        log("hit (%d:%s), ", argc, azColName[0]);
                         ia >> *(the_bundle->aig);
                         the_bundle->hit = true;
 
@@ -129,7 +136,9 @@ namespace yosys_als {
                 std::ostringstream os;
                 boost::archive::text_oarchive oa(os);
 
-                log("miss, ");
+                log_mtx.lock();
+                log("[CACHE] Cache miss for %s.\n", key.c_str());
+                log_mtx.unlock();
 
                 aig = yosys_als::synthesize_lut(boost::dynamic_bitset<>(lut.as_string()), out_distance);
                 oa << aig;
@@ -140,6 +149,10 @@ namespace yosys_als {
                 std::string key_replace = fun_spec + "@0";
                 query_ins = "insert into luts values ('" + key_replace + "', '" + os.str() + "');";
                 sqlite3_exec(db, query_ins.c_str(), 0, 0, 0);
+            } else {
+                log_mtx.lock();
+                log("[CACHE] Cache hit for %s.\n", key.c_str());
+                log_mtx.unlock();
             }
         } else {
             aig = yosys_als::synthesize_lut(boost::dynamic_bitset<>(lut.as_string()), out_distance);
@@ -147,7 +160,10 @@ namespace yosys_als {
 
         if (debug) {
             boost::to_string(aig.fun_spec, fun_spec);
-            log("satisfied with %zu gates, implements %s.\n", aig.num_gates, fun_spec.c_str());
+            log_mtx.lock();
+            log("[SAT] Satisfied %s@%d with %zu gates, implements %s.\n",
+                    lut.as_string().c_str(), out_distance, aig.num_gates, fun_spec.c_str());
+            log_mtx.unlock();
         }
 
         return aig;
