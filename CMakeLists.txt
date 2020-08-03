@@ -18,21 +18,26 @@ find_package(Boolector REQUIRED)
 find_package(SQLite3 REQUIRED)
 
 set(TARGET als)
-set(SRC_DIR passes/${TARGET})
+set(SRC_DIR passes/${TARGET}/source)
+set(INC_DIR passes/${TARGET}/include)
+
+include_directories(${INC_DIR})
 
 add_executable(${TARGET}
         ${SRC_DIR}/als.cc
         ${SRC_DIR}/smtsynth.cc
-        ${SRC_DIR}/smtsynth.h
         ${SRC_DIR}/smt_utils.cc
-        ${SRC_DIR}/smt_utils.h
         ${SRC_DIR}/yosys_utils.cc
-        ${SRC_DIR}/yosys_utils.h
         ${SRC_DIR}/graph.cc
-        ${SRC_DIR}/graph.h
-        ${SRC_DIR}/Optimizer.h
         ${SRC_DIR}/ErSEvaluator.cc
-        ${SRC_DIR}/ErSEvaluator.h)
+        ${SRC_DIR}/AlsWorker.cc
+        ${INC_DIR}/smtsynth.h
+        ${INC_DIR}/smt_utils.h
+        ${INC_DIR}/yosys_utils.h
+        ${INC_DIR}/graph.h
+        ${INC_DIR}/Optimizer.h
+        ${INC_DIR}/ErSEvaluator.h
+        ${INC_DIR}/AlsWorker.h)
 
 target_compile_options(${TARGET} PRIVATE -Wall -Wextra -Wpedantic)
 
