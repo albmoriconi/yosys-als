@@ -70,8 +70,8 @@ namespace yosys_als {
          * @param arel_bias A "desired value" of areliability
          * @return True if s1 dominates s2, otherwise false
          */
-        bool dominates(const archive_entry_t<ErSEvaluator> &s1,
-                       const archive_entry_t<ErSEvaluator> &s2, double arel_bias = 0.0) const;
+        static bool dominates(const archive_entry_t<ErSEvaluator> &s1,
+                       const archive_entry_t<ErSEvaluator> &s2, double arel_bias = 0.0);
 
         /**
          * @brief Evaluates the delta of dominance between two solutions

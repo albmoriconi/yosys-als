@@ -71,7 +71,7 @@ namespace yosys_als {
     }
 
     bool ErSEvaluator::dominates(const archive_entry_t<ErSEvaluator> &s1,
-            const archive_entry_t<ErSEvaluator> &s2, double arel_bias) const {
+            const archive_entry_t<ErSEvaluator> &s2, double arel_bias) {
         double arel1 = fabs(arel_bias - s1.second[0]);
         double arel2 = fabs(arel_bias - s2.second[0]);
         double gate1 = s1.second[1];
@@ -121,10 +121,9 @@ namespace yosys_als {
         size_t n_s = test_vectors.size();
 
         if ((10 * n_s) < (1u << ctx->g.num_inputs))
-            return r_s + (4.5 / n_s) * (1 + sqrt(1 + (4.0 / 9.0) * n_s * r_s * (1 - r_s)));
+            return std::max(1.0, r_s + (4.5 / n_s) * (1 + sqrt(1 + (4.0 / 9.0) * n_s * r_s * (1 - r_s))));
         else
             return r_s;
-
     }
 
     double ErSEvaluator::circuit_reliability_smt(const solution_t &s) const {
@@ -153,10 +152,9 @@ namespace yosys_als {
         size_t n_s = test_vectors.size();
 
         if ((10 * n_s) < (1u << ctx->g.num_inputs))
-            return r_s + (4.5 / n_s) * (1 + sqrt(1 + (4.0 / 9.0) * n_s * r_s * (1 - r_s)));
+            return std::max(1.0, r_s + (4.5 / n_s) * (1 + sqrt(1 + (4.0 / 9.0) * n_s * r_s * (1 - r_s))));
         else
             return r_s;
-
     }
 
     size_t ErSEvaluator::gates(const solution_t &s) const {

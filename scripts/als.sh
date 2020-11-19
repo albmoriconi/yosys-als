@@ -13,4 +13,4 @@ fi
 # Run scripts
 yosys -p "tcl als.tcl $1 $2"
 yosys -p "tcl synth_variants.tcl $2"
-vivado -mode batch -source report_power.tcl -tclargs als_${2}_xilinx
+vivado -mode batch -source report_xilinx.tcl -tclargs als_${2}_xilinx
