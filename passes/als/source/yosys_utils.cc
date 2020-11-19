@@ -122,6 +122,9 @@ namespace yosys_als {
             std::string query = "select aig from luts where spec = '" + key + "';";
             sqlite3_exec(db, query.c_str(),
                     [](void *aig_bundle, int argc, char **argv, char **azColName) { // Cache hit
+                        (void) argc;
+                        (void) azColName;
+
                         auto *the_bundle = (aig_bundle_t*) aig_bundle;
                         std::istringstream is(argv[0]);
                         boost::archive::text_iarchive ia(is);

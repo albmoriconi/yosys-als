@@ -126,7 +126,7 @@ namespace yosys_als {
 
         // 5. Output results
         log_header(module->design, "Showing archive of results.\n");
-        log(log_string.c_str());
+        log("%s", log_string.c_str());
 
         // +1. Close our db cache
         assert(sqlite3_close(db) == SQLITE_OK);

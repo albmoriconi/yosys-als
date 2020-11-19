@@ -25,7 +25,14 @@
 #ifndef YOSYS_ALS_GRAPH_H
 #define YOSYS_ALS_GRAPH_H
 
+#if defined __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
 #include "kernel/yosys.h"
+#if defined __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 #include <boost/graph/adjacency_list.hpp>
 

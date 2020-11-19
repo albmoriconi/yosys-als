@@ -22,7 +22,14 @@
  * @brief Approximate logic synthesis pass for Yosys ALS module
  */
 
+#if defined __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
 #include "kernel/yosys.h"
+#if defined __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 #include "AlsWorker.h"
 

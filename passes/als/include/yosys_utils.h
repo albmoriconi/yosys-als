@@ -26,7 +26,14 @@
 #define YOSYS_ALS_YOSYS_UTILS_H
 
 #include "smtsynth.h"
+#if defined __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
 #include "kernel/yosys.h"
+#if defined __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 #include <sqlite3.h>
 
