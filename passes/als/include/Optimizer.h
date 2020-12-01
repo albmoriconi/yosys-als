@@ -223,7 +223,7 @@ namespace yosys_als {
                     s[g.g[v]] = 0;
             }
 
-            return {s, evaluator.value(s)};
+            return {s, evaluator.empty_solution_value(s)};
         }
 
         /**

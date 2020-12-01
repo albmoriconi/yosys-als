@@ -54,7 +54,10 @@ namespace yosys_als {
         test_vectors_n = parameters.test_vectors_n;
 
         // Create samples and evaluate exact outputs
-        size_t total_vectors = 1u << ctx->g.num_inputs;
+        if (ctx->g.num_inputs >= 8 * sizeof(unsigned long))
+            throw std::range_error("Circuit has too many inputs");
+
+        size_t total_vectors = 1ul << ctx->g.num_inputs;
         test_vectors = selection_sample(test_vectors_n, total_vectors);
         exact_outputs.reserve(test_vectors.size());
         for (auto &v : test_vectors)
@@ -70,6 +73,11 @@ namespace yosys_als {
                            static_cast<double>(gates(s)) / gates_baseline};
     }
 
+    ErSEvaluator::value_t ErSEvaluator::empty_solution_value(const solution_t &s) {
+        (void) s;
+        return {0, 1};
+    }
+
     bool ErSEvaluator::dominates(const archive_entry_t<ErSEvaluator> &s1,
             const archive_entry_t<ErSEvaluator> &s2, double arel_bias) {
         double arel1 = fabs(arel_bias - s1.second[0]);
@@ -80,9 +88,9 @@ namespace yosys_als {
         return (arel1 <= arel2 && gate1 < gate2) || (arel1 < arel2 && gate1 <= gate2);
     }
 
-/*
- * Private methods
- */
+    /*
+     * Private methods
+     */
 
     std::vector<boost::dynamic_bitset<>> ErSEvaluator::selection_sample(const unsigned long n,
             const unsigned long max) {
@@ -120,10 +128,15 @@ namespace yosys_als {
         double r_s = static_cast<double>(exact) / test_vectors.size();
         size_t n_s = test_vectors.size();
 
-        if ((10 * n_s) < (1u << ctx->g.num_inputs))
-            return std::max(1.0, r_s + (4.5 / n_s) * (1 + sqrt(1 + (4.0 / 9.0) * n_s * r_s * (1 - r_s))));
-        else
+        if ((10ul * n_s) < (1ul << ctx->g.num_inputs)) {
+            double estimated_rel = r_s + (4.5 / n_s) * (1 + sqrt(1 + (4.0 / 9.0) * n_s * r_s * (1 - r_s)));
+            if (estimated_rel > 1.0)
+                return r_s;
+            else
+                return estimated_rel;
+        } else {
             return r_s;
+        }
     }
 
     double ErSEvaluator::circuit_reliability_smt(const solution_t &s) const {
@@ -151,10 +164,15 @@ namespace yosys_als {
         double r_s = static_cast<double>(exact_tot) / test_vectors.size();
         size_t n_s = test_vectors.size();
 
-        if ((10 * n_s) < (1u << ctx->g.num_inputs))
-            return std::max(1.0, r_s + (4.5 / n_s) * (1 + sqrt(1 + (4.0 / 9.0) * n_s * r_s * (1 - r_s))));
-        else
+        if ((10ul * n_s) < (1ul << ctx->g.num_inputs)) {
+            double estimated_rel = r_s + (4.5 / n_s) * (1 + sqrt(1 + (4.0 / 9.0) * n_s * r_s * (1 - r_s)));
+            if (estimated_rel > 1.0)
+                return r_s;
+            else
+                return estimated_rel;
+        } else {
             return r_s;
+        }
     }
 
     size_t ErSEvaluator::gates(const solution_t &s) const {

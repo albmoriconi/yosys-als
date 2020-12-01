@@ -49,7 +49,7 @@ namespace yosys_als {
         /**
          * @brief Constructor
          */
-        ErSEvaluator(optimizer_context_t<ErSEvaluator> *ctx);
+        explicit ErSEvaluator(optimizer_context_t<ErSEvaluator> *ctx);
 
         /**
          * @brief Setup the evaluator
@@ -62,6 +62,12 @@ namespace yosys_als {
          * @param s The solution
          */
         value_t value(const solution_t &s) const;
+
+        /**
+         * @brief Evaluates a solution that is known to be an empty solution
+         * @param s The solution
+         */
+        static value_t empty_solution_value(const solution_t &s);
 
         /**
          * @brief Checks if a solution dominates another
