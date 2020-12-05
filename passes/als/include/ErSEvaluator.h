@@ -112,7 +112,8 @@ namespace yosys_als {
         unsigned processor_count;
 
         // Private evaluation methods
-        std::vector<boost::dynamic_bitset<>> selection_sample(unsigned long n, unsigned long max);
+        std::vector<boost::dynamic_bitset<>> selection_sample(unsigned long n, unsigned long max) const;
+        static std::vector<boost::dynamic_bitset<>> simple_sample(unsigned long n, unsigned long log2max);
 
         double circuit_reliability(const solution_t &s) const;
         double circuit_reliability_smt(const solution_t &s) const;

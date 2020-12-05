@@ -27,6 +27,7 @@
 
 #include "ErSEvaluator.h"
 
+#include <cmath>
 #include <map>
 #include <numeric>
 #include <thread>
@@ -54,11 +55,14 @@ namespace yosys_als {
         test_vectors_n = parameters.test_vectors_n;
 
         // Create samples and evaluate exact outputs
-        if (ctx->g.num_inputs >= 8 * sizeof(unsigned long))
-            throw std::range_error("Circuit has too many inputs");
+        if (ctx->g.num_inputs >= 8 * sizeof(unsigned long)) {
+            test_vectors = simple_sample(test_vectors_n, ctx->g.num_inputs);
+        }
+        else {
+            size_t total_vectors = 1ul << ctx->g.num_inputs;
+            test_vectors = selection_sample(test_vectors_n, total_vectors);
+        }
 
-        size_t total_vectors = 1ul << ctx->g.num_inputs;
-        test_vectors = selection_sample(test_vectors_n, total_vectors);
         exact_outputs.reserve(test_vectors.size());
         for (auto &v : test_vectors)
             exact_outputs.emplace_back(evaluate_graph(ctx->opt->empty_solution().first, v));
@@ -93,7 +97,7 @@ namespace yosys_als {
      */
 
     std::vector<boost::dynamic_bitset<>> ErSEvaluator::selection_sample(const unsigned long n,
-            const unsigned long max) {
+            const unsigned long max) const {
         std::uniform_real_distribution<double> U(0.0, 1.0);
         std::vector<boost::dynamic_bitset<>> sample;
 
@@ -116,6 +120,22 @@ namespace yosys_als {
         return sample;
     }
 
+    std::vector<boost::dynamic_bitset<>> ErSEvaluator::simple_sample(unsigned long n, unsigned long log2max) {
+        std::uniform_int_distribution<uint8_t> bit_flip(0, 1);
+        std::vector<boost::dynamic_bitset<>> sample;
+
+        sample.reserve(n);
+        for (unsigned long i = 0; i < n; i++) {
+            boost::dynamic_bitset<> a_vector(log2max, 0);
+            for (size_t bit = 0; bit < log2max; bit++) {
+                a_vector[bit] = bit_flip(rng);
+            }
+            sample.emplace_back(a_vector);
+        }
+
+        return sample;
+    }
+
     double ErSEvaluator::circuit_reliability(const solution_t &s) const {
         size_t exact = 0;
 
@@ -128,7 +148,7 @@ namespace yosys_als {
         double r_s = static_cast<double>(exact) / test_vectors.size();
         size_t n_s = test_vectors.size();
 
-        if ((10ul * n_s) < (1ul << ctx->g.num_inputs)) {
+        if (log2(10.0 * n_s) < ctx->g.num_inputs) {
             double estimated_rel = r_s + (4.5 / n_s) * (1 + sqrt(1 + (4.0 / 9.0) * n_s * r_s * (1 - r_s)));
             if (estimated_rel > 1.0)
                 return r_s;
@@ -164,7 +184,7 @@ namespace yosys_als {
         double r_s = static_cast<double>(exact_tot) / test_vectors.size();
         size_t n_s = test_vectors.size();
 
-        if ((10ul * n_s) < (1ul << ctx->g.num_inputs)) {
+        if (log2(10.0 * n_s) < ctx->g.num_inputs) {
             double estimated_rel = r_s + (4.5 / n_s) * (1 + sqrt(1 + (4.0 / 9.0) * n_s * r_s * (1 - r_s)));
             if (estimated_rel > 1.0)
                 return r_s;
