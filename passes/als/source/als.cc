@@ -87,26 +87,22 @@ namespace yosys_als {
             size_t argidx;
             for (argidx = 1; argidx < args.size(); argidx++) {
                 if (args[argidx] == "-w" && argidx + 2 < args.size()) {
-                    std::string lhs = args[++argidx].c_str();
-                    std::string rhs = args[++argidx].c_str();
+                    std::string lhs = args[++argidx];
+                    std::string rhs = args[++argidx];
                     weights.emplace_back(lhs, rhs);
-                    continue;
                 }
-                if (args[argidx] == "-i" && argidx + 1 < args.size()) {
-                    std::string arg = args[++argidx].c_str();
-                    max_iter = std::stoul(arg);
-                    continue;
+                else if (args[argidx] == "-i" && argidx + 1 < args.size()) {
+                    std::string arg = args[++argidx];
+                    max_iter = arg;
                 }
-                if (args[argidx] == "-v" && argidx + 1 < args.size()) {
-                    std::string arg = args[++argidx].c_str();
-                    test_vectors_n = std::stoul(arg);
-                    continue;
+                else if (args[argidx] == "-v" && argidx + 1 < args.size()) {
+                    std::string arg = args[++argidx];
+                    test_vectors_n = arg;
                 }
-                if (args[argidx] == "-d") {
+                else if (args[argidx] == "-d") {
                     worker.debug = true;
-                    continue;
                 }
-                if (args[argidx] == "-r") {
+                else if (args[argidx] == "-r") {
                     worker.rewrite_run = true;
                 }
             }
