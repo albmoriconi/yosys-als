@@ -29,7 +29,9 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
 #endif
+
 #include "kernel/yosys.h"
+
 #if defined __GNUC__
 #pragma GCC diagnostic pop
 #endif
@@ -38,48 +40,50 @@
 
 namespace yosys_als {
 
-    /// The vertex type for topological analysis of the circuit
-    struct vertex_t {
-        enum {CONSTANT_ZERO, CONSTANT_ONE, PRIMARY_INPUT, CELL} type;
-        Yosys::IdString name;
-        Yosys::Cell *cell;
+/// The vertex type for topological analysis of the circuit
+struct vertex_t {
+    enum {
+        CONSTANT_ZERO, CONSTANT_ONE, PRIMARY_INPUT, CELL
+    } type;
+    Yosys::IdString name;
+    Yosys::Cell *cell;
 
-        unsigned int hash() const {
-            return name.hash();
-        }
+    unsigned int hash() const {
+        return name.hash();
+    }
 
-        bool operator==(const vertex_t &rhs) const {
-            return name == rhs.name;
-        }
-    };
+    bool operator==(const vertex_t &rhs) const {
+        return name == rhs.name;
+    }
+};
 
-    /// The edge type for topological analysis of the circuit
-    struct edge_t {
-        size_t connection;
-        size_t signal;
-    };
+/// The edge type for topological analysis of the circuit
+struct edge_t {
+    size_t connection;
+    size_t signal;
+};
 
-    /// The graph type for topological analysis of the circuit
-    typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, vertex_t, edge_t> graph_t;
+/// The graph type for topological analysis of the circuit
+typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS, vertex_t, edge_t> graph_t;
 
-    /// A bundle of a graph with additional informations
-    struct Graph {
-        graph_t g;
-        size_t num_inputs {0};
-    };
+/// A bundle of a graph with additional informations
+struct Graph {
+    graph_t g;
+    size_t num_inputs{0};
+};
 
-    /// The vertex descriptor type for topological analysis of the circuit
-    typedef boost::graph_traits<graph_t>::vertex_descriptor vertex_d;
+/// The vertex descriptor type for topological analysis of the circuit
+typedef boost::graph_traits<graph_t>::vertex_descriptor vertex_d;
 
-    /// The edge descriptor type for topological analysis of the circuit
-    typedef boost::graph_traits<graph_t>::edge_descriptor edge_d;
+/// The edge descriptor type for topological analysis of the circuit
+typedef boost::graph_traits<graph_t>::edge_descriptor edge_d;
 
-    /**
-     * @brief Create a graph with the topological structure of the circuit
-     * @param module A module
-     * @return A graph with the topological structure of the circuit
-     */
-    Graph graph_from_module(Yosys::Module *module);
+/**
+ * @brief Create a graph with the topological structure of the circuit
+ * @param module A module
+ * @return A graph with the topological structure of the circuit
+ */
+Graph graph_from_module(Yosys::Module *module);
 }
 
 #endif //YOSYS_ALS_GRAPH_H

@@ -26,11 +26,14 @@
 #define YOSYS_ALS_YOSYS_UTILS_H
 
 #include "smtsynth.h"
+
 #if defined __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
 #endif
+
 #include "kernel/yosys.h"
+
 #if defined __GNUC__
 #pragma GCC diagnostic pop
 #endif
@@ -39,34 +42,34 @@
 
 namespace yosys_als {
 
-    /// Type for the catalogue of synthesized LUTs
-    typedef Yosys::dict<Yosys::Const, std::vector<aig_model_t>> lut_catalogue_t;
+/// Type for the catalogue of synthesized LUTs
+typedef Yosys::dict<Yosys::Const, std::vector<aig_model_t>> lut_catalogue_t;
 
-    /**
-     * @brief Wrapper for \c synthesize_lut
-     * @param lut The LUT specification
-     * @param out_distance The approximation degree
-     * @return The synthesized AIG model
-     */
-    aig_model_t synthesize_lut(const Yosys::Const &lut, unsigned int out_distance, bool debug, sqlite3 *db);
+/**
+ * @brief Wrapper for \c synthesize_lut
+ * @param lut The LUT specification
+ * @param out_distance The approximation degree
+ * @return The synthesized AIG model
+ */
+aig_model_t synthesize_lut(const Yosys::Const &lut, unsigned int out_distance, bool debug, sqlite3 *db);
 
-    /**
-     * Checks if cell is a LUT
-     * @param cell A cell
-     * @return \c true if the cell is a LUT, otherwise \c false
-     */
-    inline bool is_lut(const Yosys::Cell *const cell) {
-        return cell->hasParam("\\LUT");
-    }
+/**
+ * Checks if cell is a LUT
+ * @param cell A cell
+ * @return \c true if the cell is a LUT, otherwise \c false
+ */
+inline bool is_lut(const Yosys::Cell *const cell) {
+    return cell->hasParam("\\LUT");
+}
 
-    /**
-     * Gets the value of the \c LUT parameter of a cell, i.e. its specification
-     * @param cell A cell
-     * @return The value of the \c LUT parameter of the cell
-     */
-    inline const Yosys::Const &get_lut_param(const Yosys::Cell *const cell) {
-        return cell->getParam("\\LUT");
-    }
+/**
+ * Gets the value of the \c LUT parameter of a cell, i.e. its specification
+ * @param cell A cell
+ * @return The value of the \c LUT parameter of the cell
+ */
+inline const Yosys::Const &get_lut_param(const Yosys::Cell *const cell) {
+    return cell->getParam("\\LUT");
+}
 }
 
 #endif //YOSYS_ALS_YOSYS_UTILS_H

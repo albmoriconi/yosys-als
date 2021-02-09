@@ -30,40 +30,40 @@
 
 namespace yosys_als {
 
-    unsigned ceil_log2(const unsigned int x) {
+unsigned ceil_log2(const unsigned int x) {
 #if defined(__GNUC__)
-        return x > 1 ? (8 * sizeof(x)) - __builtin_clz(x - 1) : 0;
+    return x > 1 ? (8 * sizeof(x)) - __builtin_clz(x - 1) : 0;
 #else
-        if (x > 1) {
-            for (size_t i = 0; i < 8 * sizeof(x); i++) {
-                if (((x - 1) >> i) == 0)
-                    return i;
-            }
+    if (x > 1) {
+        for (size_t i = 0; i < 8 * sizeof(x); i++) {
+            if (((x - 1) >> i) == 0)
+                return i;
         }
+    }
 
-        return 0;
+    return 0;
 #endif
+}
+
+boost::dynamic_bitset<> truth_table_column(const size_t i, const size_t num_vars, const bool p) {
+    boost::dynamic_bitset<> bs(1u << num_vars);
+
+    for (size_t t = 0; t < bs.size(); t++)
+        bs[t] = truth_table_value(i, t) == p;
+
+    return bs;
+}
+
+size_t hamming_distance(const boost::dynamic_bitset<> &bs1, const boost::dynamic_bitset<> &bs2) {
+    if (bs1.size() != bs2.size())
+        throw std::invalid_argument("Hamming distance undefined for bitsets of different size.");
+
+    size_t dist = 0;
+    for (size_t i = 0; i < bs1.size(); i++) {
+        if (bs1[i] != bs2[i])
+            dist++;
     }
 
-    boost::dynamic_bitset<> truth_table_column(const size_t i, const size_t num_vars, const bool p) {
-        boost::dynamic_bitset<> bs(1u << num_vars);
-
-        for (size_t t = 0; t < bs.size(); t++)
-            bs[t] = truth_table_value(i, t) == p;
-
-        return bs;
-    }
-
-    size_t hamming_distance(const boost::dynamic_bitset<> &bs1, const boost::dynamic_bitset<> &bs2) {
-        if (bs1.size() != bs2.size())
-            throw std::invalid_argument("Hamming distance undefined for bitsets of different size.");
-
-        size_t dist = 0;
-        for (size_t i = 0; i < bs1.size(); i++) {
-            if (bs1[i] != bs2[i])
-                dist++;
-        }
-
-        return dist;
-    }
+    return dist;
+}
 } // namespace yosys_als

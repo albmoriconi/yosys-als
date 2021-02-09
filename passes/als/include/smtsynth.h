@@ -33,42 +33,42 @@
 
 namespace yosys_als {
 
-    /**
-     * @brief An AIG model
-     * The first \c num_inputs entries of \c s are the AIG primary inputs.
-     * The first input is always the constant zero.
-     * The output of the last entry of \c s is the AIG primary output.
-     */
-    struct aig_model_t {
-        /// Synthesized function specification
-        boost::dynamic_bitset<> fun_spec;
+/**
+ * @brief An AIG model
+ * The first \c num_inputs entries of \c s are the AIG primary inputs.
+ * The first input is always the constant zero.
+ * The output of the last entry of \c s is the AIG primary output.
+ */
+struct aig_model_t {
+    /// Synthesized function specification
+    boost::dynamic_bitset<> fun_spec;
 
-        /// Number of inputs to the model
-        size_t num_inputs;
+    /// Number of inputs to the model
+    size_t num_inputs;
 
-        /// Number of gates in the model
-        size_t num_gates;
+    /// Number of gates in the model
+    size_t num_gates;
 
-        /// Variables in the model
-        std::vector<std::array<size_t, 2>> s;
+    /// Variables in the model
+    std::vector<std::array<size_t, 2>> s;
 
-        /// Polarities of variables in the model
-        std::vector<std::array<bool, 2>> p;
+    /// Polarities of variables in the model
+    std::vector<std::array<bool, 2>> p;
 
-        /// Output variable
-        size_t out;
+    /// Output variable
+    size_t out;
 
-        /// Polarity of the output
-        bool out_p;
-    };
+    /// Polarity of the output
+    bool out_p;
+};
 
-    /**
-     * @brief SMT AIG exact synthesis for given function specification
-     * @param fun_spec The function specification
-     * @param out_distance The maximum hamming distance of the synthesized function
-     * @return The synthesized AIG model
-     */
-    aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, unsigned int out_distance);
+/**
+ * @brief SMT AIG exact synthesis for given function specification
+ * @param fun_spec The function specification
+ * @param out_distance The maximum hamming distance of the synthesized function
+ * @return The synthesized AIG model
+ */
+aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, unsigned int out_distance);
 } // namespace yosys_als
 
 #endif //YOSYS_ALS_SMTSYNTH_H

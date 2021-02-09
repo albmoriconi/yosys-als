@@ -32,59 +32,59 @@
 
 namespace yosys_als {
 
-    /*
-     * Numeric utility functions
-     */
+/*
+ * Numeric utility functions
+ */
 
-    /**
-     * @brief Check if power of two
-     * @param x An unsigned integer
-     * @return \c true if \c v is a power of 2, otherwise \c false
-     */
-    constexpr bool is_power_of_2(const unsigned int x) {
-        return x && ((x & (x - 1)) == 0);
-    }
+/**
+ * @brief Check if power of two
+ * @param x An unsigned integer
+ * @return \c true if \c v is a power of 2, otherwise \c false
+ */
+constexpr bool is_power_of_2(const unsigned int x) {
+    return x && ((x & (x - 1)) == 0);
+}
 
-    /**
-     * @brief Fast ceil log2
-     * @param x An unsigned integer
-     * @return The ceil log2 of \c x
-     */
-    unsigned int ceil_log2(unsigned int x);
+/**
+ * @brief Fast ceil log2
+ * @param x An unsigned integer
+ * @return The ceil log2 of \c x
+ */
+unsigned int ceil_log2(unsigned int x);
 
-    /*
-     * Truth tables utility functions
-     */
+/*
+ * Truth tables utility functions
+ */
 
-    /**
-     * @brief Truth table value
-     * @param i Variable index
-     * @param t Row of the table
-     * @return The value of given variable (variable 0 is always \c false)
-     */
-    inline bool truth_table_value(const size_t i, const size_t t) {
-        if (i == 0)
-            return false;
+/**
+ * @brief Truth table value
+ * @param i Variable index
+ * @param t Row of the table
+ * @return The value of given variable (variable 0 is always \c false)
+ */
+inline bool truth_table_value(const size_t i, const size_t t) {
+    if (i == 0)
+        return false;
 
-        return t % (1u << i) >= (1u << (i - 1));
-    }
+    return t % (1u << i) >= (1u << (i - 1));
+}
 
-    /**
-     * @brief Return a column of the truth table
-     * @param col The number of the column
-     * @param num_vars The number of variables
-     * @param p The polarity of the column
-     * @return The column of the truth table (column 0 is all 0s)
-     */
-    boost::dynamic_bitset<> truth_table_column(size_t i, size_t num_vars, bool p);
+/**
+ * @brief Return a column of the truth table
+ * @param col The number of the column
+ * @param num_vars The number of variables
+ * @param p The polarity of the column
+ * @return The column of the truth table (column 0 is all 0s)
+ */
+boost::dynamic_bitset<> truth_table_column(size_t i, size_t num_vars, bool p);
 
-    /**
-     * @brief Hamming distance between two bitsets
-     * @param bs1 A bitset
-     * @param bs2 A bitset
-     * @return The hamming distance between \c bs1 and \c bs2
-     */
-    size_t hamming_distance(const boost::dynamic_bitset<> &bs1, const boost::dynamic_bitset<> &bs2);
+/**
+ * @brief Hamming distance between two bitsets
+ * @param bs1 A bitset
+ * @param bs2 A bitset
+ * @return The hamming distance between \c bs1 and \c bs2
+ */
+size_t hamming_distance(const boost::dynamic_bitset<> &bs1, const boost::dynamic_bitset<> &bs2);
 } // namespace yosys_als
 
 #endif //YOSYS_ALS_SMT_UTILS_H
