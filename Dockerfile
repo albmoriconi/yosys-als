@@ -25,7 +25,7 @@ RUN make -j `nproc`
 RUN make install
 
 WORKDIR /boolector
-RUN git checkout 3.2.0
+RUN git checkout 3.2.1
 RUN ./contrib/setup-lingeling.sh
 RUN ./contrib/setup-btor2tools.sh
 RUN ./configure.sh --shared
