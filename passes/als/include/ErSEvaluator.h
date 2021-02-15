@@ -19,7 +19,7 @@
 
 /**
  * @file
- * @brief Solution evaluator for Yosys ALS module
+ * @brief Error rate statistical evaluator for Yosys ALS module
  */
 
 #ifndef YOSYS_ALS_ERSEVALUATOR_H
@@ -85,8 +85,8 @@ public:
      * @param s2 Another solution
      * @return The delta of dominance between the two solutions
      */
-    inline double delta_dom(const archive_entry_t<ErSEvaluator> &s1,
-                            const archive_entry_t<ErSEvaluator> &s2) const {
+    static inline double delta_dom(const archive_entry_t<ErSEvaluator> &s1,
+                            const archive_entry_t<ErSEvaluator> &s2) {
         double f1 = fabs(s1.second[0] - s2.second[0]);
         double f2 = fabs(s1.second[1] - s2.second[1]);
         f1 = f1 != 0.0 ? f1 : 1.0;

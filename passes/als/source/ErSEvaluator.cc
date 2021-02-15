@@ -22,7 +22,7 @@
 
 /**
  * @file
- * @brief Solution evaluator for Yosys ALS module
+ * @brief Error rate statistical evaluator for Yosys ALS module
  */
 
 #include "ErSEvaluator.h"

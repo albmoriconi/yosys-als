@@ -30,6 +30,7 @@ add_executable(${TARGET}
         ${SRC_DIR}/yosys_utils.cc
         ${SRC_DIR}/graph.cc
         ${SRC_DIR}/ErSEvaluator.cc
+        ${SRC_DIR}/EpsMaxEvaluator.cc
         ${SRC_DIR}/AlsWorker.cc
         ${INC_DIR}/smtsynth.h
         ${INC_DIR}/smt_utils.h
@@ -37,6 +38,7 @@ add_executable(${TARGET}
         ${INC_DIR}/graph.h
         ${INC_DIR}/Optimizer.h
         ${INC_DIR}/ErSEvaluator.h
+        ${INC_DIR}/EpsMaxEvaluator.h
         ${INC_DIR}/AlsWorker.h)
 
 target_compile_options(${TARGET} PRIVATE -Wall -Wextra -Wpedantic)
