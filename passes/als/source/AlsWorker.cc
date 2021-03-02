@@ -25,6 +25,7 @@
 #include "AlsWorker.h"
 
 #include "ErSEvaluator.h"
+#include "EpsMaxEvaluator.h"
 
 #include <boost/filesystem.hpp>
 
@@ -68,12 +69,36 @@ void AlsWorker::run(Module *const module) {
     log_header(module->design, "Running SMT exact synthesis for LUTs.\n");
     exact_synthesis_helper(module);
 
+    // 3. + 4. Optimize and rewrite
+    // TODO Make this more elegant
+    string log_string;
+    if (metric == "epsmax") {
+        EpsMaxEvaluator::parameters_t parameters;
+        log_string = optimizeAndRewrite<EpsMaxEvaluator>(module, parameters);
+    } else {
+        ErSEvaluator::parameters_t parameters;
+        parameters.max_iter = max_iter;
+        parameters.test_vectors_n = test_vectors_n;
+        log_string = optimizeAndRewrite<ErSEvaluator>(module, parameters);
+    }
+
+    log_header(module->design, "Rolling-back all rewrites.\n");
+    log_pop();
+
+    // 5. Output results
+    log_header(module->design, "Showing archive of results.\n");
+    log("%s", log_string.c_str());
+
+    // +1. Close our db cache
+    assert(sqlite3_close(db) == SQLITE_OK);
+    db = nullptr;
+}
+
+template<typename E>
+string AlsWorker::optimizeAndRewrite(Module *const module, typename E::parameters_t parameters) {
     // 3. Optimize circuit and show results
     log_header(module->design, "Running approximation heuristic.\n");
-    auto optimizer = Optimizer<ErSEvaluator>(module, weights, synthesized_luts);
-    ErSEvaluator::parameters_t parameters;
-    parameters.max_iter = max_iter;
-    parameters.test_vectors_n = test_vectors_n;
+    auto optimizer = Optimizer<E>(module, weights, synthesized_luts);
     optimizer.setup(parameters);
     auto archive = optimizer();
 
@@ -94,7 +119,7 @@ void AlsWorker::run(Module *const module) {
     std::string command = "write_ilang";
     Pass::call(module->design, command + " " + dir_name + "/exact.ilang");
 
-    dict<IdString, Const> to_restore;
+    hashlib::dict<IdString, Const> to_restore;
     for (auto cell : module->cells()) {
         if (is_lut(cell))
             to_restore[cell->name] = get_lut_param(cell);
@@ -121,16 +146,7 @@ void AlsWorker::run(Module *const module) {
                 cell->setParam("\\LUT", to_restore[cell->name]);
         }
     }
-    log_header(module->design, "Rolling-back all rewrites.\n");
-    log_pop();
-
-    // 5. Output results
-    log_header(module->design, "Showing archive of results.\n");
-    log("%s", log_string.c_str());
-
-    // +1. Close our db cache
-    assert(sqlite3_close(db) == SQLITE_OK);
-    db = nullptr;
+    return log_string;
 }
 
 void AlsWorker::replace_lut(Module *const module, Cell *const lut, const aig_model_t &aig) {

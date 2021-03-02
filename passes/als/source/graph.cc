@@ -32,7 +32,7 @@ USING_YOSYS_NAMESPACE
 
 namespace yosys_als {
 
-Graph graph_from_module(Module *const module) {
+Graph graph_from_module(Module *const module, const Yosys::dict<Yosys::SigBit, double>& weights) {
     Graph g;
     SigMap sigmap(module);
     dict<IdString, vertex_d> vertex_map;
@@ -46,10 +46,19 @@ Graph graph_from_module(Module *const module) {
         g.g[v].type = vertex_t::CELL;
         vertex_map[cell->name] = v;
 
-        for (auto &conn : cell->connections())
+        for (auto &conn : cell->connections()) {
+            auto maybe_an_out = sigmap(conn.second);
+            if (maybe_an_out.is_wire()) {
+                auto the_out = maybe_an_out.as_bit();
+                if (weights.find(the_out) != weights.end()) {
+                    g.g[v].weight = weights.at(maybe_an_out.as_bit());
+                }
+            }
+
             if (cell->output(conn.first))
                 for (auto &sig : sigmap(conn.second))
                     driver_of[sig] = cell;
+        }
     }
 
     // Add driver -> driven cell edges

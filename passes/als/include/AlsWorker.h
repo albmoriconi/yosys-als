@@ -48,6 +48,9 @@ public:
     /// If \c true, rewrite AIG
     bool rewrite_run = false;
 
+    /// The metric to be used for evaluation @todo make a pointer to class
+    std::string metric;
+
     /// Weights for the outputs
     weights_t weights;
 
@@ -92,6 +95,9 @@ private:
     void replace_lut(Yosys::Module *const module, Yosys::Cell *const lut, const aig_model_t &aig);
 
     void exact_synthesis_helper(Yosys::Module *module);
+
+    template<typename E>
+    std::string optimizeAndRewrite(Yosys::Module *const module, typename E::parameters_t parameters);
 };
 
 }

@@ -55,6 +55,10 @@ struct AlsPass : public Pass {
         log("\n");
         log("This command executes an approximate logic synthesis.\n");
         log("\n");
+        log("    -m <metric>\n");
+        log("        select the metric (default: ers).\n");
+        log("\n");
+        log("\n");
         log("    -w <signal> <value>\n");
         log("        set the weight for the output signal to the specified power of two.\n");
         log("\n");
@@ -88,7 +92,9 @@ struct AlsPass : public Pass {
         // TODO Add arguments for specifying input probability
         size_t argidx;
         for (argidx = 1; argidx < args.size(); argidx++) {
-            if (args[argidx] == "-w" && argidx + 2 < args.size()) {
+            if (args[argidx] == "-m" && argidx + 1 < args.size()) {
+                worker.metric = args[++argidx];
+            } else if (args[argidx] == "-w" && argidx + 2 < args.size()) {
                 std::string lhs = args[++argidx];
                 std::string rhs = args[++argidx];
                 weights.emplace_back(lhs, rhs);
@@ -105,6 +111,10 @@ struct AlsPass : public Pass {
             }
         }
         extra_args(args, argidx, design);
+
+        if (worker.metric.empty()) {
+            worker.metric = "ers";
+        }
 
         Module *top_mod = nullptr;
 

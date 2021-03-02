@@ -45,6 +45,10 @@ void EpsMaxEvaluator::setup(const parameters_t &parameters) {
     if (ctx->g.num_inputs > sizeof(unsigned long) * 8 - 1) {
         throw std::runtime_error("Too many inputs - Circuit unsupported");
     }
+
+    for (size_t i = 0; i < 1u << ctx->g.num_inputs; i++)
+        exact_outputs.emplace_back(evaluate_graph(ctx->opt->empty_solution().first,
+                                                  boost::dynamic_bitset<>(ctx->g.num_inputs, i)));
 }
 
 EpsMaxEvaluator::value_t EpsMaxEvaluator::value(const solution_t &s) const {
@@ -84,7 +88,8 @@ double EpsMaxEvaluator::circuit_epsmax(const solution_t &s) const {
 
         threads.emplace_back([this, &s, &curr_epsmax, start, end, j]() {
             for (size_t i = start; i < end; i++) {
-                auto result = evaluate_graph(s, boost::dynamic_bitset<>(ctx->g.num_inputs, i)).to_ulong();
+                auto result = evaluate_graph(s, boost::dynamic_bitset<>(ctx->g.num_inputs, i)).to_ulong()
+                        - exact_outputs[i].to_ulong();
                 if (result > curr_epsmax[j]) {
                     curr_epsmax[j] = result;
                 }
@@ -114,7 +119,8 @@ boost::dynamic_bitset<> EpsMaxEvaluator::evaluate_graph(const solution_t &s,
     // Yosys::dict does not seem to be thread-safe w.r.t. write access?
     // TODO If we had a max of vertex_d we could simply use an array
     std::map<vertex_d, bool> cell_value;
-    std::string output;
+    // We only consider WEIGHTED outputs!
+    std::string output(ctx->weights.size(), '0');
     size_t curr_input = 0; // ugly, but dynamic_bitset has no iterators
 
     for (auto &v : ctx->vertices) {
@@ -140,8 +146,7 @@ boost::dynamic_bitset<> EpsMaxEvaluator::evaluate_graph(const solution_t &s,
             cell_value[v] = lut_specification[lut_entry];
 
             if (boost::out_degree(v, ctx->g.g) == 0) { // Primary outputs
-                // maybe it's faster to append directly to a bitset? we should profile
-                output += cell_value[v] ? "1" : "0";
+                output[ctx->g.g[v].weight] = cell_value[v] ? '1' : '0';
             }
         }
     }

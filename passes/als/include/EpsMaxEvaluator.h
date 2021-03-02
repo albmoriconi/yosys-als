@@ -103,6 +103,8 @@ private:
                                            const boost::dynamic_bitset<> &input) const;
 
     size_t gates(const solution_t &s) const;
+
+    std::vector<boost::dynamic_bitset<>> exact_outputs;
 };
 
 }

@@ -106,7 +106,7 @@ public:
      * @param luts The lut catalogue for the model
      */
     Optimizer(Yosys::Module *module, weights_t &weights, lut_catalogue_t &luts)
-            : g(graph_from_module(module)), sigmap(module), weights(weights), luts(luts),
+            : g(graph_from_module(module, weights)), sigmap(module), weights(weights), luts(luts),
               ctx(optimizer_context_t<E>{this, g, vertices, sigmap, weights, luts}), evaluator(&ctx) {}
 
     /**

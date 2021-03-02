@@ -48,6 +48,8 @@ struct vertex_t {
     Yosys::IdString name;
     Yosys::Cell *cell;
 
+    size_t weight;
+
     unsigned int hash() const {
         return name.hash();
     }
@@ -83,7 +85,7 @@ typedef boost::graph_traits<graph_t>::edge_descriptor edge_d;
  * @param module A module
  * @return A graph with the topological structure of the circuit
  */
-Graph graph_from_module(Yosys::Module *module);
+Graph graph_from_module(Yosys::Module *module, const Yosys::dict<Yosys::SigBit, double>& weights);
 }
 
 #endif //YOSYS_ALS_GRAPH_H
