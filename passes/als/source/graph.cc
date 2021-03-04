@@ -51,6 +51,7 @@ Graph graph_from_module(Module *const module, const Yosys::dict<Yosys::SigBit, d
             if (maybe_an_out.is_wire()) {
                 auto the_out = maybe_an_out.as_bit();
                 if (weights.find(the_out) != weights.end()) {
+                    g.g[v].type = vertex_t::WEIGHTED_CELL;
                     g.g[v].weight = weights.at(maybe_an_out.as_bit());
                 }
             }

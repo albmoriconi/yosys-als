@@ -43,7 +43,7 @@ namespace yosys_als {
 /// The vertex type for topological analysis of the circuit
 struct vertex_t {
     enum {
-        CONSTANT_ZERO, CONSTANT_ONE, PRIMARY_INPUT, CELL
+        CONSTANT_ZERO, CONSTANT_ONE, PRIMARY_INPUT, CELL, WEIGHTED_CELL
     } type;
     Yosys::IdString name;
     Yosys::Cell *cell;
