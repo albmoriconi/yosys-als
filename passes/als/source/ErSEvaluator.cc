@@ -43,6 +43,8 @@ ErSEvaluator::ErSEvaluator(optimizer_context_t<ErSEvaluator> *ctx) : ctx(ctx) {
 }
 
 void ErSEvaluator::setup(const parameters_t &parameters) {
+    (void) parameters;
+
     // Count reliability normalization factor
     rel_norm = 0.0;
     for (auto &w : ctx->weights)
@@ -52,7 +54,7 @@ void ErSEvaluator::setup(const parameters_t &parameters) {
     gates_baseline = gates(ctx->opt->empty_solution().first);
 
     // Set parameters
-    test_vectors_n = parameters.test_vectors_n;
+    //test_vectors_n = parameters.test_vectors_n;
 
     // Create samples and evaluate exact outputs
     if (ctx->g.num_inputs >= 8 * sizeof(unsigned long)) {
@@ -161,7 +163,7 @@ double ErSEvaluator::circuit_reliability(const solution_t &s) const {
 double ErSEvaluator::circuit_reliability_smt(const solution_t &s) const {
     std::vector<size_t> exact(processor_count, 0);
     std::vector<std::thread> threads;
-    size_t slice = test_vectors.size() / processor_count;
+    size_t slice = test_vectors.size() / processor_count + 1;
 
     for (size_t j = 0; j < processor_count; j++) {
         size_t start = j * slice;
@@ -226,6 +228,7 @@ boost::dynamic_bitset<> ErSEvaluator::evaluate_graph(const solution_t &s,
             std::for_each(in_edges.first, in_edges.second, [&](const edge_d &e) {
                 cell_input += cell_value[boost::source(e, ctx->g.g)] ? "1" : "0";
             });
+            std::reverse(cell_input.begin(), cell_input.end());
 
             // Evaluate cell output value from inputs - we only cover the LUT case
             auto lut_specification =
@@ -239,6 +242,7 @@ boost::dynamic_bitset<> ErSEvaluator::evaluate_graph(const solution_t &s,
             }
         }
     }
+    std::reverse(output.begin(), output.end());
 
     return boost::dynamic_bitset<>(output);
 }

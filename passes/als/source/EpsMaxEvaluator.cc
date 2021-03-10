@@ -76,35 +76,21 @@ bool EpsMaxEvaluator::dominates(const archive_entry_t<EpsMaxEvaluator> &s1,
  */
 
 double EpsMaxEvaluator::circuit_epsmax(const solution_t &s) const {
-    std::vector<double> curr_epsmax(processor_count, 0);
-    std::vector<std::thread> threads;
+    double curr_epsmax = 0;
 
     size_t n_vectors = 1u << ctx->g.num_inputs;
-    size_t slice = n_vectors / processor_count;
 
-    for (size_t j = 0; j < processor_count; j++) {
-        size_t start = j * slice;
-        size_t end = std::min(start + slice, n_vectors);
-
-        threads.emplace_back([this, &s, &curr_epsmax, start, end, j]() {
-            for (size_t i = start; i < end; i++) {
-                auto result = abs(
-                        static_cast<double>(evaluate_graph(s, boost::dynamic_bitset<>(ctx->g.num_inputs, i)).to_ulong())
-                        - static_cast<double>(exact_outputs[i].to_ulong())
-                        );
-                if (result > curr_epsmax[j]) {
-                    curr_epsmax[j] = result;
-                }
-            }
-        });
+    for (size_t i = 0; i < n_vectors; i++) {
+        auto result = abs(
+                static_cast<double>(evaluate_graph(s, boost::dynamic_bitset<>(ctx->g.num_inputs, i)).to_ulong())
+                - static_cast<double>(exact_outputs[i].to_ulong())
+                );
+        if (result > curr_epsmax) {
+            curr_epsmax = result;
+        }
     }
 
-    for (auto &t : threads)
-        t.join();
-
-    auto max_result = std::max_element(curr_epsmax.begin(), curr_epsmax.end());
-
-    return *max_result;
+    return curr_epsmax;
 }
 
 size_t EpsMaxEvaluator::gates(const solution_t &s) const {
@@ -140,6 +126,7 @@ boost::dynamic_bitset<> EpsMaxEvaluator::evaluate_graph(const solution_t &s,
             std::for_each(in_edges.first, in_edges.second, [&](const edge_d &e) {
                 cell_input += cell_value[boost::source(e, ctx->g.g)] ? "1" : "0";
             });
+            std::reverse(cell_input.begin(), cell_input.end());
 
             // Evaluate cell output value from inputs - we only cover the LUT case
             auto lut_specification =
@@ -148,12 +135,13 @@ boost::dynamic_bitset<> EpsMaxEvaluator::evaluate_graph(const solution_t &s,
             cell_value[v] = lut_specification[lut_entry];
 
             if (boost::out_degree(v, ctx->g.g) == 0) { // Primary outputs
-                if (ctx->g.g[v].type == vertex_t::WEIGHTED_CELL) {
-                    output[ctx->g.g[v].weight] = cell_value[v] ? '1' : '0';
+                if (ctx->g.g[v].weight.has_value()) {
+                    output[ctx->g.g[v].weight.get()] = cell_value[v] ? '1' : '0';
                 }
             }
         }
     }
+    std::reverse(output.begin(), output.end());
 
     return boost::dynamic_bitset<>(output);
 }

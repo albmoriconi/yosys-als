@@ -37,18 +37,19 @@
 #endif
 
 #include <boost/graph/adjacency_list.hpp>
+#include <boost/optional.hpp>
 
 namespace yosys_als {
 
 /// The vertex type for topological analysis of the circuit
 struct vertex_t {
     enum {
-        CONSTANT_ZERO, CONSTANT_ONE, PRIMARY_INPUT, CELL, WEIGHTED_CELL
+        CONSTANT_ZERO, CONSTANT_ONE, PRIMARY_INPUT, CELL
     } type;
     Yosys::IdString name;
     Yosys::Cell *cell;
 
-    size_t weight;
+    boost::optional<size_t> weight = boost::none;
 
     unsigned int hash() const {
         return name.hash();

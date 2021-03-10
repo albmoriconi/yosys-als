@@ -222,7 +222,7 @@ void AlsWorker::exact_synthesis_helper(Module *module) {
     // However, speculation is a good call: if current LUT is small enough, it would
     // terminate quick enough to start on same thread; if it doesn't, using another
     // thread seems a good call.
-    size_t slice = unique_luts.size() / processor_count;
+    size_t slice = unique_luts.size() / processor_count + 1;
     std::vector<std::thread> threads;
 
     for (size_t j = 0; j < processor_count; j++) {
