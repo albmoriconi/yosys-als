@@ -55,7 +55,8 @@ void AlsWorker::run(Module *const module) {
         }
 
         for (auto cell : to_sub) {
-            replace_lut(module, cell, synthesize_lut(get_lut_param(cell), 0, debug, db));
+            // We get without doubts here - if we used it in a solution, we MUST have its synth
+            replace_lut(module, cell, synthesize_lut(get_lut_param(cell), 0, max_tries, debug, db));
         }
 
         Pass::call(module->design, "clean");
@@ -234,12 +235,15 @@ void AlsWorker::exact_synthesis_helper(Module *module) {
                 const auto &fun_spec = unique_luts[i];
 
                 result_slices[j][fun_spec] =
-                        std::vector<aig_model_t>{synthesize_lut(fun_spec, 0, debug, db)};
+                        std::vector<aig_model_t>{synthesize_lut(fun_spec, 0, max_tries, debug, db)};
 
                 size_t dist = 1;
                 while (result_slices[j][fun_spec].back().num_gates > 0) {
-                    auto approximate_candidate = synthesize_lut(fun_spec, dist++, debug, db);
-                    result_slices[j][fun_spec].push_back(std::move(approximate_candidate));
+                    auto approximate_candidate = synthesize_lut(fun_spec, dist++, max_tries, debug, db);
+                    if (approximate_candidate.is_valid)
+                        result_slices[j][fun_spec].push_back(std::move(approximate_candidate));
+                    else
+                        break;
                 }
             }
         });

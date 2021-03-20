@@ -213,7 +213,7 @@ void assume_function_semantics(const smt_context_t &ctx) {
  * Exposed functions and procedures
  */
 
-aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, const unsigned int out_distance) {
+aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, const unsigned int out_distance, unsigned int max_tries) {
     if (fun_spec.empty() || !is_power_of_2(fun_spec.size()))
         throw std::invalid_argument("Function specification is invalid.");
 
@@ -233,6 +233,7 @@ aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, const unsign
         aig.out = *sel_var / 2;
         aig.out_p = *sel_var % 2 == 0;
         aig.fun_spec = truth_table_column(aig.out, num_vars, aig.out_p);
+        aig.is_valid = true;
         return aig;
     }
 
@@ -255,7 +256,11 @@ aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, const unsign
     assume_function_semantics(ctx);
 
     // Solver loop
+    unsigned int tries = 0;
     while (boolector_sat(ctx.btor) == BOOLECTOR_UNSAT) {
+        if (out_distance > 0 && tries >= max_tries)
+            return aig;
+
         // Update index
         auto i = ctx.b.size();
         auto i_gates = i - (num_vars + 1);
@@ -300,6 +305,8 @@ aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, const unsign
 
         // Update function semantics
         assume_function_semantics(ctx);
+
+        tries++;
     }
 
     // Populate the AIG model
@@ -322,6 +329,7 @@ aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, const unsign
     // Delete solver
     smt_context_delete(ctx);
 
+    aig.is_valid = true;
     return aig;
 }
 } // namespace yosys_als

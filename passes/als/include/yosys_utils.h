@@ -51,7 +51,7 @@ typedef Yosys::dict<Yosys::Const, std::vector<aig_model_t>> lut_catalogue_t;
  * @param out_distance The approximation degree
  * @return The synthesized AIG model
  */
-aig_model_t synthesize_lut(const Yosys::Const &lut, unsigned int out_distance, bool debug, sqlite3 *db);
+aig_model_t synthesize_lut(const Yosys::Const &lut, unsigned int out_distance, unsigned int max_tries, bool debug, sqlite3 *db);
 
 /**
  * Checks if cell is a LUT

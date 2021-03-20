@@ -60,6 +60,9 @@ struct aig_model_t {
 
     /// Polarity of the output
     bool out_p;
+
+    /// Is valid?
+    bool is_valid = false;
 };
 
 /**
@@ -68,7 +71,7 @@ struct aig_model_t {
  * @param out_distance The maximum hamming distance of the synthesized function
  * @return The synthesized AIG model
  */
-aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, unsigned int out_distance);
+aig_model_t synthesize_lut(const boost::dynamic_bitset<> &fun_spec, unsigned int out_distance, unsigned int max_tries);
 } // namespace yosys_als
 
 #endif //YOSYS_ALS_SMTSYNTH_H

@@ -42,6 +42,7 @@ namespace serialization {
 template<class Archive>
 void serialize(Archive &ar, yosys_als::aig_model_t &aig,
                const unsigned int version __attribute__((unused))) {
+    ar & aig.is_valid;
     ar & aig.fun_spec;
     ar & aig.num_inputs;
     ar & aig.num_gates;
@@ -91,7 +92,7 @@ struct aig_bundle_t {
 };
 
 // TODO Needs refactoring
-aig_model_t synthesize_lut(const Const &lut, unsigned int out_distance = 0,
+aig_model_t synthesize_lut(const Const &lut, unsigned int out_distance = 0, unsigned int max_tries = 20,
                            bool debug = false, sqlite3 *db = nullptr) {
 
     // Database initialization
@@ -143,30 +144,40 @@ aig_model_t synthesize_lut(const Const &lut, unsigned int out_distance = 0,
             log("[CACHE] Cache miss for %s.\n", key.c_str());
             log_mtx.unlock();
 
-            aig = yosys_als::synthesize_lut(boost::dynamic_bitset<>(lut.as_string()), out_distance);
-            oa << aig;
+            aig = yosys_als::synthesize_lut(boost::dynamic_bitset<>(lut.as_string()), out_distance, max_tries);
 
-            std::string query_ins = "insert into luts values ('" + key + "', '" + os.str() + "');";
-            sqlite3_exec(db, query_ins.c_str(), 0, 0, 0);
-            boost::to_string(aig.fun_spec, fun_spec);
-            std::string key_replace = fun_spec + "@0";
-            query_ins = "insert into luts values ('" + key_replace + "', '" + os.str() + "');";
-            sqlite3_exec(db, query_ins.c_str(), 0, 0, 0);
+            if (aig.is_valid) {
+                oa << aig;
+
+                std::string query_ins = "insert into luts values ('" + key + "', '" + os.str() + "');";
+                sqlite3_exec(db, query_ins.c_str(), 0, 0, 0);
+                boost::to_string(aig.fun_spec, fun_spec);
+                std::string key_replace = fun_spec + "@0";
+                query_ins = "insert into luts values ('" + key_replace + "', '" + os.str() + "');";
+                sqlite3_exec(db, query_ins.c_str(), 0, 0, 0);
+            }
         } else {
             log_mtx.lock();
             log("[CACHE] Cache hit for %s.\n", key.c_str());
             log_mtx.unlock();
         }
     } else {
-        aig = yosys_als::synthesize_lut(boost::dynamic_bitset<>(lut.as_string()), out_distance);
+        aig = yosys_als::synthesize_lut(boost::dynamic_bitset<>(lut.as_string()), out_distance, max_tries);
     }
 
     if (debug) {
-        boost::to_string(aig.fun_spec, fun_spec);
-        log_mtx.lock();
-        log("[SAT] Satisfied %s@%d with %zu gates, implements %s.\n",
-            lut.as_string().c_str(), out_distance, aig.num_gates, fun_spec.c_str());
-        log_mtx.unlock();
+        if (aig.is_valid) {
+            boost::to_string(aig.fun_spec, fun_spec);
+            log_mtx.lock();
+            log("[SAT] Satisfied %s@%d with %zu gates, implements %s.\n",
+                lut.as_string().c_str(), out_distance, aig.num_gates, fun_spec.c_str());
+            log_mtx.unlock();
+        } else {
+            log_mtx.lock();
+            log("[SAT] Timed-out while trying to satisfy %s@%d.\n",
+                lut.as_string().c_str(), out_distance);
+            log_mtx.unlock();
+        }
     }
 
     return aig;

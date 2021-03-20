@@ -57,6 +57,9 @@ public:
     /// Maximum number of iterations for the optimizer
     size_t max_iter{};
 
+    /// Maximum number of tries for SMT LUT synthesis
+    size_t max_tries{};
+
     /// Number of test vectors to be evaluated
     size_t test_vectors_n{};
 

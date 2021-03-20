@@ -67,6 +67,10 @@ struct AlsPass : public Pass {
         log("        set the number of iterations for the optimizer.\n");
         log("\n");
         log("\n");
+        log("    -t <value>\n");
+        log("        set the maximum tries for SMT synthesis of approximate LUTs.\n");
+        log("\n");
+        log("\n");
         log("    -v <value>\n");
         log("        set the number of test vectors for the evaluator.\n");
         log("\n");
@@ -88,6 +92,7 @@ struct AlsPass : public Pass {
         std::vector<std::pair<std::string, std::string>> weights;
         std::string max_iter = "2500";
         std::string test_vectors_n = "1000";
+        std::string max_tries = "20";
 
         // TODO Add arguments for specifying input probability
         size_t argidx;
@@ -101,6 +106,9 @@ struct AlsPass : public Pass {
             } else if (args[argidx] == "-i" && argidx + 1 < args.size()) {
                 std::string arg = args[++argidx];
                 max_iter = arg;
+            } else if (args[argidx] == "-t" && argidx + 1 < args.size()) {
+                std::string arg = args[++argidx];
+                max_tries = arg;
             } else if (args[argidx] == "-v" && argidx + 1 < args.size()) {
                 std::string arg = args[++argidx];
                 test_vectors_n = arg;
@@ -144,6 +152,7 @@ struct AlsPass : public Pass {
 
         worker.max_iter = std::stoul(max_iter);
         worker.test_vectors_n = std::stoul(test_vectors_n);
+        worker.max_tries = std::stoul(max_tries);
 
         worker.run(top_mod);
 
