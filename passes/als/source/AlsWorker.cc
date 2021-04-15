@@ -75,6 +75,7 @@ void AlsWorker::run(Module *const module) {
     string log_string;
     if (metric == "epsmax") {
         EpsMaxEvaluator::parameters_t parameters;
+        parameters.max_iter = max_iter;
         log_string = optimizeAndRewrite<EpsMaxEvaluator>(module, parameters);
     } else {
         ErSEvaluator::parameters_t parameters;
