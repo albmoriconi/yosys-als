@@ -46,7 +46,7 @@ void EpsMaxEvaluator::setup(const parameters_t &parameters) {
         throw std::runtime_error("Too many inputs - Circuit unsupported");
     }
 
-    for (size_t i = 0; i < 1u << ctx->g.num_inputs; i++)
+    for (size_t i = 0; i < 1ul << ctx->g.num_inputs; i++)
         exact_outputs.emplace_back(evaluate_graph(ctx->opt->empty_solution().first,
                                                   boost::dynamic_bitset<>(ctx->g.num_inputs, i)));
 }
@@ -78,7 +78,7 @@ bool EpsMaxEvaluator::dominates(const archive_entry_t<EpsMaxEvaluator> &s1,
 double EpsMaxEvaluator::circuit_epsmax(const solution_t &s) const {
     double curr_epsmax = 0;
 
-    size_t n_vectors = 1u << ctx->g.num_inputs;
+    size_t n_vectors = 1ul << ctx->g.num_inputs;
 
     for (size_t i = 0; i < n_vectors; i++) {
         auto result = abs(
