@@ -46,6 +46,15 @@ void EpsMaxEvaluator::setup(const parameters_t &parameters) {
         throw std::runtime_error("Too many inputs - Circuit unsupported");
     }
 
+    std::stable_sort(ctx->vertices.begin(), ctx->vertices.end(),
+                     [this](const vertex_d &v1, const vertex_d &v2)
+    {
+        if (ctx->g.g[v1].weight.has_value() && ctx->g.g[v2].weight.has_value())
+            return ctx->g.g[v1].weight.get() > ctx->g.g[v2].weight.get();
+        else
+            return ctx->g.g[v2].weight.has_value();
+    });
+
     for (size_t i = 0; i < 1ul << ctx->g.num_inputs; i++)
         exact_outputs.emplace_back(evaluate_graph(ctx->opt->empty_solution().first,
                                                   boost::dynamic_bitset<>(ctx->g.num_inputs, i)));
