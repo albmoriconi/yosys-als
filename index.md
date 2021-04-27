@@ -1,37 +1,93 @@
-## Welcome to GitHub Pages
+### What is yosys-als?
 
-You can use the [editor on GitHub](https://github.com/albmoriconi/yosys-als/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
+yosys-als is a design space exploration tool for approximate circuits, implemented as a plugin for the [Yosys Open Synthesis Suite](http://www.clifford.at/yosys/).
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+### How can I install it?
 
-### Markdown
+The [project repository](https://github.com/albmoriconi/yosys-als) provides a Dockerfile that you can use to get started quickly.
+If you prefer to run it in your environment of choice, you'll need:
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+- [Yosys 0.9](https://github.com/YosysHQ/yosys)
+- [Boolector 3.2.1](https://github.com/boolector/boolector/)
 
-```markdown
-Syntax highlighted code block
+In addition to the dependencies of these two softwares, you'll also need these additional packages:
 
-# Header 1
-## Header 2
-### Header 3
+- libboost-serialization-dev
+- libboost-graph-dev
+- libboost-dev
+- libsqlite3-dev
 
-- Bulleted
-- List
+Then you can compile yosys-als running Cmake:
 
-1. Numbered
-2. List
-
-**Bold** and _Italic_ and `Code` text
-
-[Link](url) and ![Image](src)
+```
+$ git clone https://github.com/albmoriconi/yosys-als.git
+$ cd yosys-als
+$ cmake -B build
+$ cmake --build build
 ```
 
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
+It can be handy to copy yosys-als to the Yosys plugin directory:
 
-### Jekyll Themes
+```
+$ sudo cmake --build build --target install_plugin
+```
 
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/albmoriconi/yosys-als/settings/pages). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
+### How can I try it?
 
-### Support or Contact
+yosys-als is distributed with some example scripts that you can use to search for approximate variants of a combinatorial circuit, to synthesize them and to run a power estimation using the [Xilinx Vivado Design Suite](https://www.xilinx.com/products/design-tools/vivado.html).
 
-Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://support.github.com/contact) and we’ll help you sort it out.
+If you just want to give it a try, start with a Verilog or SystemVerilog description of a simple circuit (VHDL is also supported, but requires the [GHDL Yosys plugin](https://github.com/ghdl/ghdl-yosys-plugin)); e.g., you can save the following to `mult_2_bit.sv`:
+
+```systemverilog
+// 2-bit multiplier
+
+module mult_2_bit (
+    input  logic [1:0]  a,
+    output logic [3:0]  o,
+    input  logic [1:0]  b
+);
+
+  logic and01;
+  logic and10;
+  logic and11;
+  logic and0110;
+
+  assign and01 = a[0] & b[1];
+  assign and10 = a[1] & b[0];
+  assign and11 = a[1] & b[1];
+  assign and0110 = and01 & and10;
+
+  assign o[0] = a[0] & b[0];
+  assign o[1] = and01 ^ and10;
+  assign o[2] = and11 ^ and0110;
+  assign o[3] = and11 & and0110;
+
+endmodule
+```
+
+Launch Yosys and insert the commands:
+
+```
+yosys> plugin -i als
+yosys> read_verilog -sv mult_2_bit.sv 
+yosys> splitnets -ports
+yosys> als
+```
+
+You'll obtain a table with a short report of the results, e.g.:
+
+```
+ Entry     Chosen LUTs         Arel        Gates
+ ----- --------------- ------------ ------------
+     0            0000            0            1
+     1            1110       0.0625     0.416667
+[...]
+     5            1250         0.25         0.25
+[...]
+```
+
+The resulting variants will also be saved in the Yosys `ilang` format to the `als_mult_2_bit` directory; the `synt_variants.tcl` script can be used to read, synthesize and write them back in Verilog.
+
+### How does it work?
+
+_This section is being updated. Please come back soon!_
